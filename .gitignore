@@ -1,0 +1,10 @@
+.streamlit/secrets.toml
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.runtime/
+outputs/
+.env
+.env.*
+!.env.example
