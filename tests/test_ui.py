@@ -186,11 +186,21 @@ class CalendarUiTests(unittest.TestCase):
 
     def test_branding_and_no_remote_assets_or_executable_html(self):
         self.assertIn("时序日历", ui.header_html())
-        self.assertIn("输入访问密码", ui.login_html())
-        for page in (self.render(), ui.header_html(), ui.login_html(), ui.footer_html()):
+        self.assertIn("设备设置", ui.navigation_html())
+        for page in (self.render(), ui.header_html(), ui.navigation_html(), ui.settings_heading_html(True), ui.footer_html()):
             self.assertNotIn("<script", page)
             self.assertNotIn("<iframe", page)
             self.assertNotIn("https://", page)
+
+    def test_settings_are_prominent_and_have_anchor_navigation(self):
+        navigation = ui.navigation_html()
+        self.assertIn('href="#calendar-settings"', navigation)
+        self.assertIn('href="#calendar-monitor"', navigation)
+        self.assertIn('href="#calendar-history"', navigation)
+        self.assertIn('id="calendar-settings"', ui.settings_heading_html(True))
+        self.assertIn("可以调整设备", ui.settings_heading_html(True))
+        self.assertIn("等待设备上线", ui.settings_heading_html(False))
+        self.assertIn("&lt;script&gt;", ui.settings_card_html("01", "<script>"))
 
 
 if __name__ == "__main__":
