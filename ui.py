@@ -1,6 +1,6 @@
 """Escaped, presentation-only HTML for the online calendar.
 
-The app owns authentication, OneNet requests and all write actions. These helpers
+The app owns OneNet requests and all write actions. These helpers
 only render a snapshot; notably they never pretend a disconnected RTC is ticking.
 """
 
@@ -111,16 +111,29 @@ def header_html() -> str:
     """
 
 
-def login_html() -> str:
-    return f"""
-    <section class="calendar-login">
-      <div class="calendar-login-mark">{_icon('clock')}</div>
-      <p class="calendar-kicker">YOUR CALENDAR, ANYWHERE</p>
-      <h2>让时间与环境，<br>随手可见。</h2>
-      <p class="calendar-login-description">输入访问密码，查看你的电子万年历。<br>手机和电脑，都能成为日历的另一块屏幕。</p>
-      <div class="calendar-login-chips"><span>设备时间</span><span>温湿度</span><span>提醒设置</span></div>
-    </section>
+def navigation_html() -> str:
+    return """
+    <nav class="calendar-navigation" aria-label="日历页面导航">
+      <a href="#calendar-monitor" target="_self">实时数据</a>
+      <a class="calendar-settings-link" href="#calendar-settings" target="_self">设备设置 <span aria-hidden="true">↗</span></a>
+      <a href="#calendar-history" target="_self">历史趋势</a>
+      <span>自动刷新 5 秒</span>
+    </nav>
     """
+
+
+def settings_heading_html(ready: bool) -> str:
+    status = "可以调整设备" if ready else "等待设备上线"
+    return f"""
+    <header id="calendar-settings" class="calendar-settings-heading">
+      <div><p>MAKE IT YOURS</p><h2>日历设置</h2><span>时间、温度提醒与声音，都在这里调整。</span></div>
+      <span class="calendar-settings-state">{status}</span>
+    </header>
+    """
+
+
+def settings_card_html(number: str, label: str) -> str:
+    return f'<div class="calendar-setting-step"><span>{_text(number)}</span><p>{_text(label)}</p></div>'
 
 
 def _month_html(view_date: date, label: str) -> str:
@@ -216,7 +229,7 @@ def dashboard_html(snapshot: dict, gateway_status: int, now_ms: int) -> str:
     last_update = _timestamp_label(snapshot.get("updated_at"))
 
     return f"""
-    <div class="calendar-overview">
+    <div id="calendar-monitor" class="calendar-overview">
       <div class="calendar-link-strip">
         <div class="calendar-status {status_class}" role="status"><i aria-hidden="true"></i><strong>{status}</strong></div>
         <span>{detail}</span>

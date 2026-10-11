@@ -11,7 +11,6 @@ class SettingsError(Exception):
 
 @dataclass(frozen=True)
 class AppSettings:
-    password: str = field(repr=False)
     cloud: OneNetSettings = field(repr=False)
 
 
@@ -22,12 +21,9 @@ def load_settings(secrets=None):
         value = source.get(name, os.environ.get(name, ""))
         return value.strip() if isinstance(value, str) else ""
 
-    password = read("CALENDAR_PASSWORD")
     token = read("ONENET_TOKEN")
     product = read("ONENET_PRODUCT_ID")
     device = read("ONENET_DEVICE_NAME")
-    if len(password) < 8 or len(password) > 128:
-        raise SettingsError("请在 Secrets 中设置 8–128 位的 CALENDAR_PASSWORD。")
     if not token or not product or not device:
         raise SettingsError("请在 Secrets 中填写 ONENET_TOKEN、ONENET_PRODUCT_ID 和 ONENET_DEVICE_NAME。")
-    return AppSettings(password, OneNetSettings(token=token, product=product, device=device))
+    return AppSettings(OneNetSettings(token=token, product=product, device=device))
