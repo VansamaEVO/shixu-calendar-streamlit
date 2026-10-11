@@ -11,7 +11,8 @@
   --calendar-number: "Bahnschrift", "Aptos", "Segoe UI", system-ui, sans-serif;
 }
 .stApp { background: var(--calendar-bg); color: var(--calendar-ink); }
-[data-testid="stMainBlockContainer"] { max-width: 1280px; padding-top: 2.5rem; padding-bottom: 2rem; }
+/* Streamlit keeps its toolbar above the page; leave room for it on every screen. */
+[data-testid="stMainBlockContainer"] { max-width: 1280px; padding-top: 5rem; padding-bottom: 2rem; }
 .calendar-topbar, .calendar-overview, .calendar-login, .calendar-footer {
   color: var(--calendar-ink);
   font-family: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
@@ -120,7 +121,7 @@
   .calendar-update { margin-left: 0; }
 }
 @media (max-width: 600px) {
-  [data-testid="stMainBlockContainer"] { padding: 1.5rem 1rem 2rem; }
+  [data-testid="stMainBlockContainer"] { padding: 5rem 1rem 2rem; }
   .calendar-topbar { gap: 12px; align-items: flex-start; }
   .calendar-brand { gap: 10px; }
   .calendar-brand-mark { width: 43px; height: 43px; border-radius: 14px; }
