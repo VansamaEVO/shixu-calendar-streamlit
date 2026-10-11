@@ -100,11 +100,11 @@ def _icon(name: str) -> str:
 
 
 def header_html() -> str:
-    return f"""
-    <header class="calendar-topbar">
+    return """
+    <header class="calendar-topbar" aria-label="时序日历 · 多功能电子万年历">
       <div class="calendar-brand">
-        <div class="calendar-brand-mark">{_icon('calendar')}</div>
-        <div><h1>时序日历</h1><p>多功能电子万年历</p></div>
+        <div class="calendar-brand-mark" aria-hidden="true">时</div>
+        <div class="calendar-brand-copy"><h1>时序 · 万年历</h1><p lang="en">CALENDAR / DEVICE</p></div>
       </div>
       <div class="calendar-edition"><span class="calendar-cloud-dot"></span>云端日历</div>
     </header>
