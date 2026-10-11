@@ -115,8 +115,8 @@ def navigation_html() -> str:
     return """
     <nav class="calendar-navigation" aria-label="日历页面导航">
       <a href="#calendar-monitor" target="_self">实时数据</a>
-      <a class="calendar-settings-link" href="#calendar-settings" target="_self">设备设置 <span aria-hidden="true">↗</span></a>
       <a href="#calendar-history" target="_self">历史趋势</a>
+      <a class="calendar-settings-link" href="#calendar-settings" target="_self">设备设置 <span aria-hidden="true">↗</span></a>
       <span>自动刷新 5 秒</span>
     </nav>
     """
@@ -126,14 +126,57 @@ def settings_heading_html(ready: bool) -> str:
     status = "可以调整设备" if ready else "等待设备上线"
     return f"""
     <header id="calendar-settings" class="calendar-settings-heading">
-      <div><p>MAKE IT YOURS</p><h2>日历设置</h2><span>时间、温度提醒与声音，都在这里调整。</span></div>
+      <div><h2>日历设置</h2><span>时间与提醒，按你的习惯调整。</span></div>
       <span class="calendar-settings-state">{status}</span>
     </header>
     """
 
 
-def settings_card_html(number: str, label: str) -> str:
-    return f'<div class="calendar-setting-step"><span>{_text(number)}</span><p>{_text(label)}</p></div>'
+def settings_summary_html(state: dict) -> str:
+    online = _truth(state.get("online"))
+    low, high = _number(state.get("low")), _number(state.get("high"))
+    valid_limits = online and low is not None and high is not None and 0 <= low < high <= 99
+    limits = f"{low:g} °C <span>–</span> {high:g} °C" if valid_limits else "-- °C <span>–</span> -- °C"
+    alarm, muted = _flag(state.get("alarm")), _flag(state.get("muted"))
+    if not online or alarm is None:
+        status, note, tone = "等待信息", "连接后显示设备状态", "waiting"
+    elif alarm is False:
+        status, note, tone = "当前无报警", "当前设备未触发温度报警", "normal"
+    elif muted is True:
+        status, note, tone = "本次已静音", "下次温度越限仍会提醒", "muted"
+    elif muted is False:
+        status, note, tone = "温度越限", "本次报警声音已开启", "alarming"
+    else:
+        status, note, tone = "温度越限", "声音状态待更新", "alarming"
+    bar = f'<i style="left:{low:g}%;width:{high-low:g}%"></i>' if valid_limits else ""
+    return f"""
+    <div class="calendar-settings-summary">
+      <div><p>当前提醒范围</p><strong>{limits}</strong><div class="calendar-range-track" aria-hidden="true">{bar}</div></div>
+      <div><p>提醒状态</p><div class="calendar-summary-state calendar-summary-{tone}"><i aria-hidden="true"></i>{status}</div><small>{note}</small></div>
+    </div>
+    """
+
+
+def trend_heading_html() -> str:
+    return """
+    <header id="calendar-history" class="calendar-trend-heading">
+      <div><h2>温湿度变化</h2><p>最近一小时 · 每项最多120次采样</p></div>
+      <div class="calendar-trend-legend" aria-label="曲线图例"><span class="calendar-legend-temperature"><i></i>温度</span><span class="calendar-legend-humidity"><i></i>湿度</span></div>
+    </header>
+    """
+
+
+def empty_trend_html(message: str = "连接设备后，温湿度变化会显示在这里") -> str:
+    rows = "".join(
+        f'<div class="calendar-grid-row"><span>{temperature}</span><i></i><span>{humidity}</span></div>'
+        for temperature, humidity in ((40, 100), (30, 75), (20, 50), (10, 25), (0, 0))
+    )
+    return f"""
+    <div class="calendar-empty-trend" role="img" aria-label="暂无历史数据，网格仅为坐标参考">
+      <div class="calendar-chart-units"><span>温度 °C</span><span>湿度 %RH</span></div>
+      <div class="calendar-empty-grid">{rows}<p class="calendar-empty-message">{_text(message)}</p></div>
+    </div>
+    """
 
 
 def _month_html(view_date: date, label: str) -> str:

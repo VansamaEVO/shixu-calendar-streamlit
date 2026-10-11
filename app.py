@@ -7,13 +7,12 @@ import hashlib
 import re
 import time
 
-import altair as alt
-import pandas as pd
 import streamlit as st
 
 from onenet import OneNetClient, OneNetError, snapshot
 from settings import SettingsError, load_settings
-from ui import dashboard_html, footer_html, header_html, navigation_html, settings_card_html, settings_heading_html
+from trend import history_chart
+from ui import dashboard_html, empty_trend_html, footer_html, header_html, navigation_html, settings_heading_html, settings_summary_html, trend_heading_html
 
 BASE = Path(__file__).resolve().parent
 CHINA = timezone(timedelta(hours=8))
@@ -84,9 +83,6 @@ def send_command(client, params, label):
 
 def render_controls(client, state):
     ready = state["ready"]
-    if not ready:
-        st.info("设备离线、数据过期或双向通信未就绪，暂不允许修改设置。")
-
     # 只初始化一次草稿。定时刷新只更新监测区，不覆盖正在输入的设置。
     defaults = state.get("time") or state.get("last_time") or china_now()
     for key, value in {
@@ -98,14 +94,15 @@ def render_controls(client, state):
         if key not in st.session_state:
             st.session_state[key] = value
 
-    clock_card, limits_card, sound_card = st.columns([1.15, 1, 1], gap="medium")
-    with clock_card, st.container(border=True, key="settings-clock"):
-        st.html(settings_card_html("01", "DATE & TIME"))
-        st.subheader("设备日期与时间")
-        st.caption("调整51的DS1302日期与时间。")
+    clock_tab, limits_tab, sound_tab = st.tabs(["日期时间", "温度提醒", "蜂鸣器"], key="settings_sections")
+    with clock_tab:
+        st.caption("设置日历的日期和时间，星期会自动更新。")
         with st.form("clock_form", clear_on_submit=False, border=False):
-            date_value = st.date_input("日期", min_value=datetime(2000, 1, 1).date(), max_value=datetime(2099, 12, 31).date(), key="draft_date", disabled=not ready)
-            clock_value = st.text_input("时间（时:分:秒）", key="draft_time", max_chars=8, placeholder="13:45:22", disabled=not ready)
+            date_column, time_column = st.columns(2, gap="medium")
+            with date_column:
+                date_value = st.date_input("日期", min_value=datetime(2000, 1, 1).date(), max_value=datetime(2099, 12, 31).date(), key="draft_date", disabled=not ready)
+            with time_column:
+                clock_value = st.text_input("时间（时:分:秒）", key="draft_time", max_chars=8, placeholder="13:45:22", disabled=not ready)
             if st.form_submit_button("写入设备时间", type="primary", disabled=not ready, use_container_width=True):
                 if not re.fullmatch(r"\d{2}:\d{2}:\d{2}", clock_value):
                     st.session_state["command_notice"] = (False, "时间请按 时:分:秒 填写，例如13:45:22。")
@@ -116,38 +113,49 @@ def render_controls(client, state):
             # Cloud 主机可能使用UTC，这里明确转换UTC+8，避免写入晚8小时的RTC。
             send_command(client, {"DeviceTime": china_now().strftime("%Y-%m-%d %H:%M:%S")}, "北京时间已同步")
             st.rerun()
-        st.caption("同步取云端服务器当前时间并转换为UTC+8，不读取手机系统时钟。")
+        st.caption("一键同步使用北京时间（UTC+8），不读取手机系统时钟。")
 
-    with limits_card, st.container(border=True, key="settings-limits"):
-        st.html(settings_card_html("02", "TEMPERATURE"))
-        st.subheader("温度提醒范围")
+    with limits_tab:
         st.caption("温度超出这个范围，蜂鸣器会提醒。")
         with st.form("limits_form", clear_on_submit=False, border=False):
-            low = st.number_input("下限 / ℃", min_value=0, max_value=99, step=1, key="draft_low", disabled=not ready)
-            high = st.number_input("上限 / ℃", min_value=0, max_value=99, step=1, key="draft_high", disabled=not ready)
+            low_column, high_column = st.columns(2, gap="medium")
+            with low_column:
+                low = st.number_input("下限 / ℃", min_value=0, max_value=99, step=1, key="draft_low", disabled=not ready)
+            with high_column:
+                high = st.number_input("上限 / ℃", min_value=0, max_value=99, step=1, key="draft_high", disabled=not ready)
             st.caption("0–99℃，下限必须小于上限。")
             if st.form_submit_button("保存温度范围", type="primary", disabled=not ready, use_container_width=True):
                 send_command(client, {"TemperatureLow": int(low), "TemperatureHigh": int(high)}, "温度范围已更新")
                 st.rerun()
 
-    with sound_card, st.container(border=True, key="settings-sound"):
-        st.html(settings_card_html("03", "ALARM SOUND"))
-        st.subheader("本次报警声音")
+    with sound_tab:
         alarm = state.get("alarm") is True
         muted = state.get("muted")
-        if not alarm:
+        if state.get("alarm") is None:
+            st.caption("等待设备回传报警状态，暂不能判断蜂鸣器声音。")
+        elif not alarm:
             st.caption("当前没有有效温度报警，无需静音。")
+        elif muted is True:
+            st.caption("本次报警已静音。")
+        elif muted is False:
+            st.caption("当前温度报警正在发声。")
         else:
-            st.caption("本次报警已静音。" if muted else "当前温度报警正在发声。")
+            st.caption("报警已触发，声音状态待更新。")
         st.html('<p class="calendar-sound-note">静音只作用于本次温度报警。温度恢复正常后，下次越限仍会提醒。</p>')
-        if st.button("本次静音", key="mute", disabled=not (ready and alarm and muted is False), use_container_width=True):
-            send_command(client, {"AlarmMuted": True}, "本次报警已静音")
-            st.rerun()
-        if st.button("恢复声音", key="unmute", disabled=not (ready and alarm and muted is True), use_container_width=True):
-            send_command(client, {"AlarmMuted": False}, "本次报警声音已恢复")
-            st.rerun()
+        mute_column, unmute_column = st.columns(2, gap="medium")
+        with mute_column:
+            if st.button("本次静音", key="mute", disabled=not (ready and alarm and muted is False), use_container_width=True):
+                send_command(client, {"AlarmMuted": True}, "本次报警已静音")
+                st.rerun()
+        with unmute_column:
+            if st.button("恢复声音", key="unmute", disabled=not (ready and alarm and muted is True), use_container_width=True):
+                send_command(client, {"AlarmMuted": False}, "本次报警声音已恢复")
+                st.rerun()
 
-    note, reset = st.columns([2, 1])
+    st.html(settings_summary_html(state))
+    if not ready:
+        st.caption("连接设备后可操作；离线、数据过期或双向通信未就绪时暂停修改。")
+    note, reset = st.columns([2, 1], gap="medium")
     with note:
         st.caption("编辑草稿不会被自动刷新覆盖。重新载入可放弃草稿，恢复设备最新设置。")
     with reset:
@@ -155,30 +163,19 @@ def render_controls(client, state):
 
 
 def render_history(client, identity):
-    with st.container(border=True):
-        st.subheader("最近一小时")
-        selection = st.radio("曲线指标", ["温度", "湿度"], horizontal=True, label_visibility="collapsed", key="chart_metric")
-        try:
-            history = read_history(identity, client)
-        except Exception:
-            st.caption("历史曲线暂不可用，实时监测不受影响。")
-            return
-        series = history["temperature" if selection == "温度" else "humidity"]
-        if not series:
-            st.caption("这一小时暂无有效历史记录，等待设备上报。")
-            return
-        unit = "℃" if selection == "温度" else "%"
-        frame = pd.DataFrame({
-            "时间": [datetime.fromtimestamp(p["time"] / 1000, CHINA).replace(tzinfo=None) for p in series],
-            "数值": [p["value"] for p in series],
-        })
-        chart = alt.Chart(frame).mark_line(color="#c57945" if selection == "温度" else "#368f89", strokeWidth=2.5, point=False).encode(
-            x=alt.X("时间:T", axis=alt.Axis(title="北京时间", format="%H:%M", labelAngle=0)),
-            y=alt.Y("数值:Q", axis=alt.Axis(title=selection + " / " + unit), scale=alt.Scale(zero=False)),
-            tooltip=[alt.Tooltip("时间:T", format="%H:%M:%S"), alt.Tooltip("数值:Q", title=selection + " / " + unit)],
-        ).properties(height=220).configure_view(stroke=None).configure_axis(gridColor="#edf0f1", labelColor="#75858e", titleColor="#75858e")
-        st.altair_chart(chart, use_container_width=True)
-        st.caption("来自OneNet真实历史记录；云端温度为整数，与物模型一致。")
+    st.html(trend_heading_html())
+    try:
+        history = read_history(identity, client)
+    except Exception:
+        st.html(empty_trend_html("历史曲线暂不可用，实时监测不受影响"))
+        return
+    temperature, humidity = history["temperature"], history["humidity"]
+    if not temperature and not humidity:
+        st.html(empty_trend_html())
+        st.caption("这一小时暂无有效历史记录，等待设备上报。")
+        return
+    st.altair_chart(history_chart(history), width="stretch", theme=None, alt="OneNet真实温湿度历史：温度使用左轴，湿度使用右轴，时间为北京时间。")
+    st.caption(f"OneNet真实记录 · 温度 {len(temperature)} 点 / 湿度 {len(humidity)} 点 · 左轴 °C，右轴 %RH")
 
 
 def main():
@@ -225,10 +222,10 @@ def main():
             state.update(online=False, ready=False, temperature=None, humidity=None, time=None, alarm=None, muted=None)
         st.session_state["current_snapshot"] = state
         st.session_state["current_gateway"] = gateway
-        signature = (gateway, state["ready"], state["alarm"], state["muted"])
+        signature = (gateway, state["ready"], state["alarm"], state["muted"], state["low"], state["high"])
         previous = st.session_state.get("controls_signature")
         if previous is not None and previous != signature:
-            # 只在控制可用性变化时重绘设置，不让5秒轮询持续重建输入表单。
+            # 仅在控制状态/已生效阈值变化时重绘，草稿不会被常规轮询覆盖。
             st.session_state["controls_signature"] = signature
             st.rerun()
         st.session_state["controls_signature"] = signature
@@ -244,21 +241,13 @@ def main():
             st.rerun()
 
     live_dashboard()
-    with st.container(key="calendar-settings-panel"):
-        state = st.session_state["current_snapshot"]
-        st.html(settings_heading_html(state["ready"]))
-        render_controls(client, state)
-
-    st.html('<header id="calendar-history" class="calendar-history-heading"><p>LOOK BACK</p><h2>趋势与记录</h2></header>')
-
     @st.fragment(run_every="5s")
     def history_dashboard():
         state = st.session_state["current_snapshot"]
         gateway = st.session_state["current_gateway"]
-        tabs = st.tabs(["环境趋势", "运行信息"])
-        with tabs[0]:
+        with st.container(key="calendar-trend-panel"):
             render_history(client, identity)
-        with tabs[1]:
+        with st.expander("连接信息与操作记录", expanded=False):
             st.write("ESP网关：" + ("在线" if gateway == 1 else "离线或不可访问"))
             st.write("51采集：" + ("在线，状态新鲜" if state["online"] else "离线或数据超过20秒"))
             st.write("双向控制：" + ("就绪" if state["ready"] else "未就绪"))
@@ -274,6 +263,10 @@ def main():
             st.caption("这里只显示本次浏览会话的操作记录，不是永久审计日志。")
 
     history_dashboard()
+    with st.container(key="calendar-settings-panel"):
+        state = st.session_state["current_snapshot"]
+        st.html(settings_heading_html(state["ready"]))
+        render_controls(client, state)
     st.html(footer_html())
 
 
