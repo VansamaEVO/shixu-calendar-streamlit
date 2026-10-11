@@ -111,16 +111,85 @@ class AppTests(unittest.TestCase):
         self.history_mock.assert_called()
         self.control_mock.assert_not_called()
 
-    def test_settings_are_visible_before_history_not_an_expander(self):
+    def test_history_precedes_visible_segmented_settings(self):
         app = self.app()
-        self.assertEqual(len(app.expander), 0)
+        self.assertEqual([item.label for item in app.expander], ["连接信息与操作记录"])
         page = html_text(app)
         self.assertIn('href="#calendar-settings"', page)
-        self.assertLess(page.index('id="calendar-monitor"'), page.index('id="calendar-settings"'))
-        self.assertLess(page.index('id="calendar-settings"'), page.index('id="calendar-history"'))
-        self.assertIn("DATE &amp; TIME", page)
-        self.assertIn("TEMPERATURE", page)
-        self.assertIn("ALARM SOUND", page)
+        self.assertLess(page.index('id="calendar-monitor"'), page.index('id="calendar-history"'))
+        self.assertLess(page.index('id="calendar-history"'), page.index('id="calendar-settings"'))
+        self.assertEqual([item.label for item in app.tabs], ["日期时间", "温度提醒", "蜂鸣器"])
+        self.assertIn("温湿度变化", page)
+        self.assertIn("当前提醒范围", page)
+        self.assertIn("连接设备后，温湿度变化会显示在这里", page)
+        self.control_mock.assert_not_called()
+
+    def test_history_error_keeps_empty_grid_and_settings(self):
+        self.history_mock.side_effect = RuntimeError("fake transport failure")
+        app = self.app()
+        self.assertIn("历史曲线暂不可用", html_text(app))
+        self.assertIn('<div class="calendar-empty-grid">', html_text(app))
+        self.assertFalse(by_label(app.button, "保存温度范围").disabled)
+        self.control_mock.assert_not_called()
+
+    def test_both_series_render_one_dual_axis_chart(self):
+        now = int(time.time() * 1000)
+        self.history_mock.return_value = {
+            "temperature": [{"time": now - 5000, "value": 25}, {"time": now, "value": 26}],
+            "humidity": [{"time": now - 5000, "value": 63}, {"time": now, "value": 64}],
+        }
+        app = self.app()
+        self.assertEqual(len(app.get("vega_lite_chart")), 1)
+        self.assertEqual(len(app.radio), 0)
+        self.assertTrue(any("温度 2 点 / 湿度 2 点" in caption.value for caption in app.caption))
+        self.assertNotIn('<div class="calendar-empty-grid">', html_text(app))
+        self.control_mock.assert_not_called()
+
+    def test_setting_tabs_preserve_drafts_when_switched(self):
+        app = self.app()
+        app.session_state["draft_time"] = "11:12:13"
+        app.session_state["draft_low"] = 8
+        app.session_state["settings_sections"] = "温度提醒"
+        app.run()
+        self.assertEqual(len(app.exception), 0)
+        self.assertEqual(app.text_input(key="draft_time").value, "11:12:13")
+        self.assertEqual(app.number_input(key="draft_low").value, 8)
+        self.control_mock.assert_not_called()
+
+    def test_current_limits_summary_does_not_replace_editing_drafts(self):
+        app = self.app()
+        app.session_state["draft_low"] = 7
+        app.session_state["draft_high"] = 39
+        updated = properties()
+        for item in updated:
+            if item["identifier"] == "TemperatureLow":
+                item["value"] = 9
+            if item["identifier"] == "TemperatureHigh":
+                item["value"] = 41
+        self.live_payload = {"properties": updated, "gateway_status": 1}
+        st.cache_data.clear()
+        app.run()
+        self.assertEqual(len(app.exception), 0)
+        self.assertEqual(app.number_input(key="draft_low").value, 7)
+        self.assertEqual(app.number_input(key="draft_high").value, 39)
+        self.assertIn("9 °C", html_text(app))
+        self.assertIn("41 °C", html_text(app))
+        self.control_mock.assert_not_called()
+
+    def test_unknown_sound_state_is_not_claimed_as_playing(self):
+        changed = properties()
+        for item in changed:
+            if item["identifier"] == "AlarmActive":
+                item["value"] = True
+            if item["identifier"] == "AlarmMuted":
+                item["value"] = "unknown"
+        self.live_payload = {"properties": changed, "gateway_status": 1}
+        app = self.app()
+        captions = [item.value for item in app.caption]
+        self.assertIn("报警已触发，声音状态待更新。", captions)
+        self.assertNotIn("当前温度报警正在发声。", captions)
+        self.assertTrue(by_label(app.button, "本次静音").disabled)
+        self.assertTrue(by_label(app.button, "恢复声音").disabled)
         self.control_mock.assert_not_called()
 
     def test_public_dashboard_renders_real_values_and_controls(self):

@@ -200,7 +200,39 @@ class CalendarUiTests(unittest.TestCase):
         self.assertIn('id="calendar-settings"', ui.settings_heading_html(True))
         self.assertIn("可以调整设备", ui.settings_heading_html(True))
         self.assertIn("等待设备上线", ui.settings_heading_html(False))
-        self.assertIn("&lt;script&gt;", ui.settings_card_html("01", "<script>"))
+        self.assertLess(navigation.index('href="#calendar-history"'), navigation.index('href="#calendar-settings"'))
+
+    def test_settings_summary_is_device_state_not_draft(self):
+        page = ui.settings_summary_html(self.snapshot)
+        self.assertIn("5 °C", page)
+        self.assertIn("45 °C", page)
+        self.assertIn("当前无报警", page)
+        self.assertIn('left:5%;width:40%', page)
+        offline = ui.settings_summary_html(dict(self.snapshot, online=False))
+        self.assertIn("-- °C", offline)
+        self.assertIn("等待信息", offline)
+        self.assertNotIn("当前无报警", offline)
+        self.assertNotIn('style="left:', offline)
+
+    def test_summary_unknown_flags_do_not_claim_silence(self):
+        page = ui.settings_summary_html(dict(self.snapshot, alarm=True, muted=None))
+        self.assertIn("声音状态待更新", page)
+        self.assertNotIn("本次已静音", page)
+        page = ui.settings_summary_html(dict(self.snapshot, alarm=True, muted=True))
+        self.assertIn("本次已静音", page)
+
+    def test_trend_empty_grid_and_safe_text(self):
+        heading = ui.trend_heading_html()
+        self.assertIn('id="calendar-history"', heading)
+        self.assertIn("温湿度变化", heading)
+        self.assertIn("最多120次采样", heading)
+        page = ui.empty_trend_html("<script>not-a-reading</script>")
+        self.assertEqual(page.count('class="calendar-grid-row"'), 5)
+        self.assertIn("网格仅为坐标参考", page)
+        self.assertIn("温度 °C", page)
+        self.assertIn("湿度 %RH", page)
+        self.assertIn("&lt;script&gt;", page)
+        self.assertNotIn("<script>", page)
 
 
 if __name__ == "__main__":
