@@ -237,11 +237,13 @@ def main():
         now_ms = int(time.time() * 1000)
         state = snapshot(properties, now_ms)
         if gateway != 1 or error:
-            state.update(online=False, ready=False, humidity_ready=False, temperature=None, humidity=None, time=None, alarm=None, muted=None)
+            state.update(online=False, ready=False, humidity_ready=False, temperature=None, humidity=None, time=None, alarm=None, muted=None,
+                         temperature_alarm=None, humidity_alarm=None)
         st.session_state["current_snapshot"] = state
         st.session_state["current_gateway"] = gateway
         signature = (gateway, state["ready"], state["alarm"], state["muted"], state["low"], state["high"],
-                     state["humidity_ready"], state["humidity_low"], state["humidity_high"])
+                     state["humidity_ready"], state["humidity_low"], state["humidity_high"],
+                     state["temperature_alarm"], state["humidity_alarm"])
         previous = st.session_state.get("controls_signature")
         if previous is not None and previous != signature:
             # 仅在控制状态/已生效阈值变化时重绘，草稿不会被常规轮询覆盖。

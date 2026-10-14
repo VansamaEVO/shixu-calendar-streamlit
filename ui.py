@@ -132,6 +132,48 @@ def settings_heading_html(ready: bool) -> str:
     """
 
 
+def _alarm_parts(state: dict):
+    temperature, humidity = _flag(state.get("temperature_alarm")), _flag(state.get("humidity_alarm"))
+    alarm = _flag(state.get("alarm"))
+    if not _truth(state.get("online")) or temperature is None or humidity is None or alarm is None or alarm != (temperature or humidity):
+        return None, None
+    return temperature, humidity
+
+
+def _alarm_source_label(state: dict) -> str:
+    temperature, humidity = _alarm_parts(state)
+    if temperature and humidity:
+        return "温湿度同时越限"
+    if temperature:
+        return "温度越限"
+    if humidity:
+        return "湿度越限"
+    return "设备越限"
+
+
+def _reminder_rows_html(state: dict) -> str:
+    online = _truth(state.get("online"))
+    parts = _alarm_parts(state)
+    rows = []
+    for label, lower, upper, maximum, unit, part, sensor, accent in (
+        ("温度", "low", "high", 99, "°C", parts[0], "temperature", "warm"),
+        ("湿度", "humidity_low", "humidity_high", 100, "%RH", parts[1], "humidity", "cool"),
+    ):
+        low, high = _number(state.get(lower)), _number(state.get(upper))
+        valid = online and low is not None and high is not None and 0 <= low < high <= maximum
+        limits = f'<span class="calendar-range-number">{low:g}</span><span>–</span><span class="calendar-range-number">{high:g}</span><small>{unit}</small>' if valid else '等待阈值上报'
+        status, tone = ("越限", "exceeded") if part is True else ("未越限", "normal")
+        if not online or part is None:
+            status, tone = "待上报", "waiting"
+        elif part is False and state.get(sensor) is None:
+            status, tone = "读数无效", "waiting"
+        range_class = " calendar-range-waiting" if not valid else ""
+        rows.append(f'<div class="calendar-reminder-row"><span class="calendar-reminder-label calendar-{accent}">{label}</span>'
+                    f'<strong class="calendar-reminder-range{range_class}">{limits}</strong>'
+                    f'<span class="calendar-reminder-badge calendar-badge-{tone}">{status}</span></div>')
+    return '<div class="calendar-reminder-ranges">' + ''.join(rows) + '</div>'
+
+
 def settings_summary_html(state: dict) -> str:
     online = _truth(state.get("online"))
     low, high = _number(state.get("low")), _number(state.get("high"))
@@ -146,11 +188,11 @@ def settings_summary_html(state: dict) -> str:
     elif alarm is False:
         status, note, tone = "当前无报警", "当前设备未触发超限报警", "normal"
     elif muted is True:
-        status, note, tone = "临时消音中", "约10秒后仍超限会再次报警", "muted"
+        status, note, tone = _alarm_source_label(state) + " · 临时消音", "约10秒后仍超限会再次报警", "muted"
     elif muted is False:
-        status, note, tone = "温湿度越限", "蜂鸣器正在报警", "alarming"
+        status, note, tone = _alarm_source_label(state), "蜂鸣器正在报警", "alarming"
     else:
-        status, note, tone = "温湿度越限", "声音状态待更新", "alarming"
+        status, note, tone = _alarm_source_label(state), "声音状态待更新", "alarming"
     bar = f'<i style="left:{low:g}%;width:{high-low:g}%"></i>' if valid_limits else ""
     return f"""
     <div class="calendar-settings-summary">
@@ -251,13 +293,6 @@ def dashboard_html(snapshot: dict, gateway_status: int, now_ms: int) -> str:
     humidity = _display_number(snapshot.get("humidity"), 0, 100) if online else "--"
     temperature_note = "DS18B20 · 真实温度保留一位小数" if temperature != "--" else "暂未收到有效温度" if online else "设备离线，暂停显示实时温度"
     humidity_note = "DHT11 · 空气相对湿度" if humidity != "--" else "暂未收到有效湿度" if online else "设备离线，暂停显示实时湿度"
-    low = _display_number(snapshot.get("low"), 0, 99)
-    high = _display_number(snapshot.get("high"), 0, 99)
-    threshold_text = f"{low}–{high}" if low != "--" and high != "--" else "--"
-    humidity_low = _display_number(snapshot.get("humidity_low"), 0, 100)
-    humidity_high = _display_number(snapshot.get("humidity_high"), 0, 100)
-    humidity_threshold_text = f"{humidity_low}–{humidity_high}" if humidity_low != "--" and humidity_high != "--" else "--"
-    threshold_note = "当前设备设置" if online else "最后收到的设置" if threshold_text != "--" else "等待设备设置"
     alarm = _flag(snapshot.get("alarm")) if online else None
     muted = _flag(snapshot.get("muted")) if online else None
     if alarm is None:
@@ -267,14 +302,16 @@ def dashboard_html(snapshot: dict, gateway_status: int, now_ms: int) -> str:
         alarm_text, alarm_class = "当前无报警", ""
         alarm_note = "温度或湿度任一项越限时，蜂鸣器会提醒。"
     elif muted is None:
-        alarm_text, alarm_class = "温湿度越限（声音状态待更新）", "calendar-alarming"
+        alarm_text, alarm_class = _alarm_source_label(snapshot) + "（声音状态待更新）", "calendar-alarming"
         alarm_note = "报警状态已更新，静音状态尚未收到，不能判断当前声音。"
     elif muted is True:
-        alarm_text, alarm_class = "当前提醒已静音", "calendar-muted"
+        alarm_text, alarm_class = _alarm_source_label(snapshot) + " · 临时消音", "calendar-muted"
         alarm_note = "临时消音约10秒，仍超限将自动再次报警。"
     else:
-        alarm_text, alarm_class = "温湿度超出提醒范围", "calendar-alarming"
+        alarm_text, alarm_class = _alarm_source_label(snapshot), "calendar-alarming"
         alarm_note = "可在日历设置中临时消音约10秒。"
+    if online and alarm is not None and _alarm_parts(snapshot)[0] is None:
+        alarm_note = "等待分项上报；" + alarm_note
     status_class = "calendar-online" if online else "calendar-offline"
     last_update = _timestamp_label(snapshot.get("updated_at"))
 
@@ -306,11 +343,10 @@ def dashboard_html(snapshot: dict, gateway_status: int, now_ms: int) -> str:
           <p class="calendar-metric-note">{humidity_note}</p>
         </article>
         <article class="calendar-card calendar-reminder {alarm_class}">
-          <div class="calendar-metric-head"><h2>温湿度提醒</h2><span class="calendar-metric-icon calendar-neutral">{_icon('bell')}</span></div>
-          <div class="calendar-limit">{threshold_text}<small> °C</small><span>{threshold_note}</span></div>
-          <div class="calendar-humidity-limit">湿度 <strong>{humidity_threshold_text}</strong><small> %RH</small></div>
-          <div class="calendar-alarm"><i aria-hidden="true"></i>{alarm_text}</div>
-          <p class="calendar-metric-note">{alarm_note}</p>
+          <div class="calendar-metric-head"><h2>温湿度提醒</h2><span class="calendar-reminder-kicker">阈值监测</span></div>
+          {_reminder_rows_html(dict(snapshot, online=online))}
+          <div class="calendar-reminder-status"><div class="calendar-alarm"><i aria-hidden="true"></i>{alarm_text}</div>
+          <p class="calendar-metric-note">{alarm_note}</p></div>
         </article>
       </section>
     </div>

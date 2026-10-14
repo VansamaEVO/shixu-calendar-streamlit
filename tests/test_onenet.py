@@ -73,6 +73,37 @@ def client(responses):
 
 
 class SnapshotTests(unittest.TestCase):
+    def test_alarm_sources_are_independent_and_not_cleared_by_mute(self):
+        for temperature, humidity in ((False, False), (True, False), (False, True), (True, True)):
+            for muted in (False, True):
+                state = snapshot(properties(TemperatureAlarm=temperature, HumidityAlarm=humidity,
+                                            AlarmActive=temperature or humidity, AlarmMuted=muted), NOW)
+                self.assertIs(state["temperature_alarm"], temperature)
+                self.assertIs(state["humidity_alarm"], humidity)
+                self.assertIs(state["alarm"], temperature or humidity)
+
+    def test_legacy_missing_or_inconsistent_sources_stay_unknown(self):
+        for changes in ({}, {"TemperatureAlarm": False}, {"TemperatureAlarm": None, "HumidityAlarm": False},
+                        {"TemperatureAlarm": 2, "HumidityAlarm": False},
+                        {"TemperatureAlarm": True, "HumidityAlarm": False},
+                        {"TemperatureAlarm": False, "HumidityAlarm": False, "AlarmActive": True}):
+            state = snapshot(properties(**changes), NOW)
+            self.assertIsNone(state["temperature_alarm"])
+            self.assertIsNone(state["humidity_alarm"])
+            self.assertTrue(state["ready"])
+
+    def test_stale_or_cross_report_sources_are_not_current(self):
+        for offset in (1001, 20000):
+            source = properties(TemperatureAlarm=True, HumidityAlarm=False, AlarmActive=True)
+            next(item for item in source if item["identifier"] == "TemperatureAlarm")["time"] -= offset
+            state = snapshot(source, NOW)
+            self.assertIsNone(state["temperature_alarm"])
+            self.assertIsNone(state["humidity_alarm"])
+            self.assertTrue(state["alarm"])
+        state = snapshot(properties(McuOnline=False, TemperatureAlarm=True, HumidityAlarm=True, AlarmActive=True), NOW)
+        self.assertIsNone(state["temperature_alarm"])
+        self.assertIsNone(state["humidity_alarm"])
+
     def test_fresh_valid_state(self):
         value = snapshot(properties(), NOW)
         self.assertTrue(value["online"])

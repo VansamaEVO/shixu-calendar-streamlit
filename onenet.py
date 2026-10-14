@@ -15,6 +15,7 @@ FIELDS = (
     "CurrentTemperature", "CurrentHumidity", "DeviceTime", "TemperatureLow",
     "TemperatureHigh", "HumidityLow", "HumidityHigh", "AlarmActive", "AlarmMuted", "McuOnline",
     "ControlReady", "TemperatureValid", "HumidityValid",
+    "TemperatureAlarm", "HumidityAlarm",
 )
 FRESH_MS = 20_000
 FUTURE_TOLERANCE_MS = 5_000
@@ -136,6 +137,17 @@ def snapshot(properties, now_ms=None) -> dict:
     humidity_limits_valid = humidity_low is not None and humidity_high is not None and humidity_low < humidity_high
     alarm = flag("AlarmActive") if online else None
     muted = flag("AlarmMuted") if online else None
+    temperature_alarm = flag("TemperatureAlarm") if online else None
+    humidity_alarm = flag("HumidityAlarm") if online else None
+    alarm_times = [_stamp(entries.get(key, {}).get("time"))
+                   for key in ("AlarmActive", "TemperatureAlarm", "HumidityAlarm")]
+    # 分项必须与总报警来自同一轮上报；旧值/缺项/矛盾不冒充当前报警来源。
+    alarm_details_valid = (alarm is not None and temperature_alarm is not None
+                           and humidity_alarm is not None
+                           and alarm == (temperature_alarm or humidity_alarm)
+                           and max(alarm_times) - min(alarm_times) <= 1000)
+    if not alarm_details_valid:
+        temperature_alarm = humidity_alarm = None
     # 时间、阈值和报警状态也要有效，不能只凭一个旧的 ready 标志打开控制。
     ready = (
         online and flag("ControlReady") is True and device_time is not None
@@ -157,6 +169,8 @@ def snapshot(properties, now_ms=None) -> dict:
         "humidity_ready": bool(ready and humidity_limits_valid),
         "alarm": alarm,
         "muted": muted,
+        "temperature_alarm": temperature_alarm,
+        "humidity_alarm": humidity_alarm,
         "time_at": _stamp(time_prop.get("time")),
         "updated_at": max([0] + [_stamp(item.get("time")) for item in entries.values()]),
     }

@@ -6,15 +6,7 @@
       "functionType": "u",
       "accessMode": "r",
       "desc": "51的DS18B20真实温度，经ESP8266上传，保留一位小数；报警阈值仍为整数",
-      "dataType": {
-        "type": "float",
-        "specs": {
-          "min": "-40",
-          "max": "125",
-          "unit": "℃",
-          "step": "0.1"
-        }
-      }
+      "dataType": {"type": "float", "specs": {"min": "-40", "max": "125", "unit": "℃", "step": "0.1"}}
     },
     {
       "identifier": "CurrentHumidity",
@@ -22,15 +14,7 @@
       "functionType": "u",
       "accessMode": "r",
       "desc": "ESP8266上传的环境湿度",
-      "dataType": {
-        "type": "int32",
-        "specs": {
-          "min": "0",
-          "max": "100",
-          "unit": "相对湿度 / %RH",
-          "step": "1"
-        }
-      }
+      "dataType": {"type": "int32", "specs": {"min": "0", "max": "100", "unit": "相对湿度 / %RH", "step": "1"}}
     },
     {
       "identifier": "alarmData",
@@ -38,12 +22,7 @@
       "functionType": "st",
       "accessMode": "r",
       "desc": "",
-      "dataType": {
-        "type": "string",
-        "specs": {
-          "length": "256"
-        }
-      }
+      "dataType": {"type": "string", "specs": {"length": "256"}}
     },
     {
       "identifier": "normalData",
@@ -51,12 +30,7 @@
       "functionType": "st",
       "accessMode": "r",
       "desc": "正常周期上报字符串",
-      "dataType": {
-        "type": "string",
-        "specs": {
-          "length": "256"
-        }
-      }
+      "dataType": {"type": "string", "specs": {"length": "256"}}
     },
     {
       "identifier": "resultCom",
@@ -64,12 +38,7 @@
       "functionType": "st",
       "accessMode": "rw",
       "desc": "",
-      "dataType": {
-        "type": "string",
-        "specs": {
-          "length": "256"
-        }
-      }
+      "dataType": {"type": "string", "specs": {"length": "256"}}
     },
     {
       "identifier": "writeCom",
@@ -77,12 +46,7 @@
       "functionType": "st",
       "accessMode": "rw",
       "desc": "",
-      "dataType": {
-        "type": "string",
-        "specs": {
-          "length": "256"
-        }
-      }
+      "dataType": {"type": "string", "specs": {"length": "256"}}
     },
     {
       "identifier": "DeviceTime",
@@ -90,12 +54,7 @@
       "functionType": "u",
       "accessMode": "rw",
       "desc": "DS1302实际时间，固定格式YYYY-MM-DD HH:mm:ss；下发时自动计算星期",
-      "dataType": {
-        "type": "string",
-        "specs": {
-          "length": "19"
-        }
-      }
+      "dataType": {"type": "string", "specs": {"length": "19"}}
     },
     {
       "identifier": "TemperatureLow",
@@ -103,15 +62,7 @@
       "functionType": "u",
       "accessMode": "rw",
       "desc": "整数摄氏度；必须与TemperatureHigh一起设置，且下限小于上限；51写入EEPROM",
-      "dataType": {
-        "type": "int32",
-        "specs": {
-          "min": "0",
-          "max": "99",
-          "unit": "℃",
-          "step": "1"
-        }
-      }
+      "dataType": {"type": "int32", "specs": {"min": "0", "max": "99", "unit": "℃", "step": "1"}}
     },
     {
       "identifier": "TemperatureHigh",
@@ -119,15 +70,7 @@
       "functionType": "u",
       "accessMode": "rw",
       "desc": "整数摄氏度；必须与TemperatureLow一起设置，且上限大于下限；51写入EEPROM",
-      "dataType": {
-        "type": "int32",
-        "specs": {
-          "min": "0",
-          "max": "99",
-          "unit": "℃",
-          "step": "1"
-        }
-      }
+      "dataType": {"type": "int32", "specs": {"min": "0", "max": "99", "unit": "℃", "step": "1"}}
     },
     {
       "identifier": "HumidityLow",
@@ -135,15 +78,7 @@
       "functionType": "u",
       "accessMode": "rw",
       "desc": "整数相对湿度0~100；必须与HumidityHigh一起设置，且下限小于上限；51写入EEPROM",
-      "dataType": {
-        "type": "int32",
-        "specs": {
-          "min": "0",
-          "max": "100",
-          "unit": "相对湿度 / %RH",
-          "step": "1"
-        }
-      }
+      "dataType": {"type": "int32", "specs": {"min": "0", "max": "100", "unit": "相对湿度 / %RH", "step": "1"}}
     },
     {
       "identifier": "HumidityHigh",
@@ -151,15 +86,7 @@
       "functionType": "u",
       "accessMode": "rw",
       "desc": "整数相对湿度0~100；必须与HumidityLow一起设置，且上限大于下限；51写入EEPROM",
-      "dataType": {
-        "type": "int32",
-        "specs": {
-          "min": "0",
-          "max": "100",
-          "unit": "相对湿度 / %RH",
-          "step": "1"
-        }
-      }
+      "dataType": {"type": "int32", "specs": {"min": "0", "max": "100", "unit": "相对湿度 / %RH", "step": "1"}}
     },
     {
       "identifier": "AlarmActive",
@@ -167,13 +94,7 @@
       "functionType": "u",
       "accessMode": "r",
       "desc": "51判断有效温度或湿度任一项越限；等于上下限不报警；不是界面自行推算的报警",
-      "dataType": {
-        "type": "bool",
-        "specs": {
-          "true": "温湿度越限",
-          "false": "未报警"
-        }
-      }
+      "dataType": {"type": "bool", "specs": {"true": "温湿度越限", "false": "未报警"}}
     },
     {
       "identifier": "AlarmMuted",
@@ -181,13 +102,23 @@
       "functionType": "u",
       "accessMode": "rw",
       "desc": "true立即消音约10秒，仍越限自动再次报警；false立即恢复声音；全部有效读数恢复范围内则解除报警",
-      "dataType": {
-        "type": "bool",
-        "specs": {
-          "true": "临时消音",
-          "false": "未消音"
-        }
-      }
+      "dataType": {"type": "bool", "specs": {"true": "临时消音", "false": "未消音"}}
+    },
+    {
+      "identifier": "TemperatureAlarm",
+      "name": "温度越限状态",
+      "functionType": "u",
+      "accessMode": "r",
+      "desc": "51实际判断的温度越限状态；有效读数严格低于下限或高于上限时为true，等于边界不报警；消音不清除该状态",
+      "dataType": {"type": "bool", "specs": {"true": "温度越限", "false": "温度未越限"}}
+    },
+    {
+      "identifier": "HumidityAlarm",
+      "name": "湿度越限状态",
+      "functionType": "u",
+      "accessMode": "r",
+      "desc": "51实际判断的湿度越限状态；有效读数严格低于下限或高于上限时为true，等于边界不报警；消音不清除该状态",
+      "dataType": {"type": "bool", "specs": {"true": "湿度越限", "false": "湿度未越限"}}
     },
     {
       "identifier": "McuOnline",
@@ -195,13 +126,7 @@
       "functionType": "u",
       "accessMode": "r",
       "desc": "ESP在最近5秒内收到51完整有效DATA帧；与ESP自身WiFi在线状态区分",
-      "dataType": {
-        "type": "bool",
-        "specs": {
-          "true": "51在线",
-          "false": "51离线或超时"
-        }
-      }
+      "dataType": {"type": "bool", "specs": {"true": "51在线", "false": "51离线或超时"}}
     },
     {
       "identifier": "ControlReady",
@@ -209,13 +134,7 @@
       "functionType": "u",
       "accessMode": "r",
       "desc": "51数据新鲜且支持安全接收窗口，ESP控制发送口可用；具体命令仍须51执行确认",
-      "dataType": {
-        "type": "bool",
-        "specs": {
-          "true": "可发起控制",
-          "false": "暂不可控制"
-        }
-      }
+      "dataType": {"type": "bool", "specs": {"true": "可发起控制", "false": "暂不可控制"}}
     },
     {
       "identifier": "TemperatureValid",
@@ -223,13 +142,7 @@
       "functionType": "u",
       "accessMode": "r",
       "desc": "51温度读取有效、通信未超时且数值在当前温度物模型范围内；无效时不上传占位温度",
-      "dataType": {
-        "type": "bool",
-        "specs": {
-          "true": "温度有效",
-          "false": "温度无效"
-        }
-      }
+      "dataType": {"type": "bool", "specs": {"true": "温度有效", "false": "温度无效"}}
     },
     {
       "identifier": "HumidityValid",
@@ -237,13 +150,7 @@
       "functionType": "u",
       "accessMode": "r",
       "desc": "51湿度读取有效且通信未超时；无效时不上传255占位湿度",
-      "dataType": {
-        "type": "bool",
-        "specs": {
-          "true": "湿度有效",
-          "false": "湿度无效"
-        }
-      }
+      "dataType": {"type": "bool", "specs": {"true": "湿度有效", "false": "湿度无效"}}
     }
   ],
   "events": [],

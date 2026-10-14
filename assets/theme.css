@@ -77,9 +77,22 @@
 .calendar-metric-note { margin: 8px 0 0; color: #61747b; font-size: 13px; line-height: 1.7; }
 .calendar-limit { font-family: var(--calendar-number); font-size: 29px; line-height: 1.35; font-weight: 550; font-variant-numeric: tabular-nums; margin: 13px 0 9px; }
 .calendar-limit small { font-size: 17px; }
-.calendar-humidity-limit { margin: 0 0 12px; color: #61747b; font-size: 13px; }
-.calendar-humidity-limit strong { margin-left: 7px; color: #368f89; font-family: var(--calendar-number); font-size: 21px; font-weight: 550; }
-.calendar-humidity-limit small { font-size: 12px; }
+.calendar-reminder-kicker { color: #7c8989; font-size: 11px; letter-spacing: .08em; white-space: nowrap; }
+.calendar-reminder-ranges { display: grid; gap: 9px; margin: 16px 0 15px; }
+.calendar-reminder-row { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; gap: 9px; align-items: center; min-height: 44px; padding: 9px 10px; border-radius: 10px; background: #f8faf9; border: 1px solid #edf1ef; }
+.calendar-reminder-label { font-size: 12px; font-weight: 550; background: none; }
+.calendar-reminder-range { display: grid; grid-template-columns: 3ch 9px 3ch auto; justify-content: start; align-items: baseline; gap: 5px; min-width: 0; font-family: var(--calendar-number); font-size: 20px; font-weight: 550; font-variant-numeric: tabular-nums; color: var(--calendar-ink); line-height: 1.3; }
+.calendar-reminder-range > span { font-size: 15px; font-weight: 400; color: #93a1a5; }
+.calendar-reminder-range > .calendar-range-number { font-size: inherit; font-weight: inherit; color: inherit; }
+.calendar-reminder-range > small { font-family: "Segoe UI", sans-serif; font-size: 11px; font-weight: 400; color: #7c8c90; }
+.calendar-range-waiting { display: block; font-family: "Microsoft YaHei UI", sans-serif; font-size: 12px; font-weight: 400; color: #7c8c90; }
+.calendar-reminder-badge { width: 56px; box-sizing: border-box; text-align: center; padding: 3px 5px; border-radius: 6px; font-size: 11px; white-space: nowrap; line-height: 1.5; }
+.calendar-badge-normal { color: #387e69; background: #edf5ee; }
+.calendar-badge-exceeded { color: #ad5947; background: #f9ece6; }
+.calendar-badge-waiting { color: #859393; background: #edf1ef; }
+.calendar-reminder-status { padding-top: 13px; border-top: 1px solid var(--calendar-line); }
+.calendar-reminder-status .calendar-alarm { font-size: 14px; line-height: 1.6; }
+.calendar-reminder-status .calendar-metric-note { margin-top: 5px; font-size: 12px; }
 .calendar-limit span { display: block; font-family: "Microsoft YaHei UI", sans-serif; font-size: 12px; font-weight: 400; color: #61747b; margin-top: 2px; }
 .calendar-alarm { display: flex; gap: 8px; align-items: center; font-size: 15px; color: #387e69; font-weight: 550; }
 .calendar-offline ~ span { color: #5b6f77; }
@@ -217,6 +230,10 @@
   .calendar-empty-message { font-size: 14px; padding: 5px 9px; }
 }
 @media (max-width: 359px) {
+  .calendar-reminder-row { grid-template-columns: 35px minmax(0, 1fr) auto; gap: 6px; padding: 8px; }
+  .calendar-reminder-range { font-size: 18px; gap: 3px; }
+  .calendar-range-waiting { font-size: 11px; }
+  .calendar-reminder-badge { width: 52px; font-size: 10px; }
   .calendar-edition { display: none; }
   .calendar-clock-panel { padding: 21px 17px; }
   .calendar-clock { font-size: 47px; }

@@ -68,7 +68,7 @@ class CalendarUiTests(unittest.TestCase):
 
     def test_missing_muted_flag_does_not_imply_audible_alarm(self):
         page = self.render(alarm=True, muted=None)
-        self.assertIn("温湿度越限（声音状态待更新）", page)
+        self.assertIn("设备越限（声音状态待更新）", page)
         self.assertIn("不能判断当前声音", page)
         self.assertIn("calendar-alarming", page)
         self.assertNotIn("当前提醒已静音", page)
@@ -81,13 +81,13 @@ class CalendarUiTests(unittest.TestCase):
 
     def test_known_muted_alarm(self):
         page = self.render(alarm=True, muted=True)
-        self.assertIn("当前提醒已静音", page)
+        self.assertIn("设备越限 · 临时消音", page)
         self.assertIn("calendar-muted", page)
         self.assertIn("临时消音约10秒，仍超限将自动再次报警", page)
 
     def test_known_unmuted_alarm(self):
         page = self.render(alarm=True, muted=False)
-        self.assertIn("温湿度超出提醒范围", page)
+        self.assertIn("设备越限", page)
         self.assertIn("可在日历设置中临时消音约10秒", page)
         self.assertNotIn("当前提醒已静音", page)
 
@@ -98,7 +98,7 @@ class CalendarUiTests(unittest.TestCase):
 
     def test_string_boolean_false_does_not_become_truthy(self):
         self.assertIn("当前无报警", self.render(alarm="false", muted="false"))
-        self.assertIn("当前提醒已静音", self.render(alarm="true", muted="1"))
+        self.assertIn("设备越限 · 临时消音", self.render(alarm="true", muted="1"))
 
     def test_stale_at_exact_twenty_seconds_freezes_clock_and_clears_sensor(self):
         page = ui.dashboard_html(self.snapshot, 1, self.now + 20_000)
@@ -237,7 +237,7 @@ class CalendarUiTests(unittest.TestCase):
         self.assertIn("声音状态待更新", page)
         self.assertNotIn("临时消音中", page)
         page = ui.settings_summary_html(dict(self.snapshot, alarm=True, muted=True))
-        self.assertIn("临时消音中", page)
+        self.assertIn("临时消音", page)
         self.assertIn("约10秒后仍超限会再次报警", page)
 
     def test_trend_empty_grid_and_safe_text(self):
@@ -252,6 +252,44 @@ class CalendarUiTests(unittest.TestCase):
         self.assertIn("湿度 %RH", page)
         self.assertIn("&lt;script&gt;", page)
         self.assertNotIn("<script>", page)
+
+    def test_reminder_has_two_equally_structured_rows(self):
+        page = self.render(temperature_alarm=False, humidity_alarm=False)
+        self.assertEqual(page.count('class="calendar-reminder-row"'), 2)
+        self.assertIn('calendar-range-number">5</span><span>–</span><span class="calendar-range-number">45</span><small>°C</small>', page)
+        self.assertIn('calendar-range-number">30</span><span>–</span><span class="calendar-range-number">80</span><small>%RH</small>', page)
+        self.assertEqual(page.count('calendar-badge-normal'), 2)
+        self.assertNotIn('calendar-humidity-limit', page)
+
+    def test_offline_reminder_does_not_show_old_limits_or_alarm_parts(self):
+        for changes in ({"online": False}, {"updated_at": self.now - 20_000}):
+            page = self.render(**dict(temperature_alarm=True, humidity_alarm=True, alarm=True, **changes))
+            self.assertEqual(page.count('等待阈值上报'), 2)
+            self.assertEqual(page.count('calendar-badge-waiting'), 2)
+            self.assertNotIn('calendar-badge-exceeded', page)
+
+    def test_alarm_source_labels_cover_temperature_humidity_and_both(self):
+        for temperature, humidity, label in ((True, False, "温度越限"), (False, True, "湿度越限"), (True, True, "温湿度同时越限")):
+            values = dict(alarm=True, temperature_alarm=temperature, humidity_alarm=humidity)
+            for muted in (False, True, None):
+                page = self.render(**dict(values, muted=muted))
+                summary = ui.settings_summary_html(dict(self.snapshot, **values, muted=muted))
+                self.assertIn(label, page)
+                self.assertIn(label, summary)
+                self.assertEqual(page.count('calendar-badge-exceeded'), int(temperature) + int(humidity))
+                self.assertNotIn('等待分项上报', page)
+
+    def test_missing_alarm_parts_never_infer_from_sensor_values(self):
+        page = self.render(alarm=True, temperature=99, humidity=100)
+        self.assertIn('等待分项上报', page)
+        self.assertEqual(page.count('calendar-badge-waiting'), 2)
+        self.assertNotIn('温湿度同时越限', page)
+
+    def test_gateway_offline_clears_reminder_parts(self):
+        state = dict(self.snapshot, alarm=True, temperature_alarm=True, humidity_alarm=True)
+        page = ui.dashboard_html(state, 0, self.now)
+        self.assertEqual(page.count('等待阈值上报'), 2)
+        self.assertNotIn('calendar-badge-exceeded', page)
 
 
 if __name__ == "__main__":
