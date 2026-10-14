@@ -11,9 +11,10 @@ NOW = 1_791_610_000_000
 
 def properties(at=NOW - 1000, **overrides):
     values = {
-        "CurrentTemperature": "25", "CurrentHumidity": "66",
+        "CurrentTemperature": "25.1", "CurrentHumidity": "66",
         "DeviceTime": "2026-10-10 12:56:28", "TemperatureLow": 5,
-        "TemperatureHigh": 45, "AlarmActive": False, "AlarmMuted": False,
+        "TemperatureHigh": 45, "HumidityLow": 30, "HumidityHigh": 80,
+        "AlarmActive": False, "AlarmMuted": False,
         "McuOnline": True, "ControlReady": True,
         "TemperatureValid": True, "HumidityValid": True,
     }
@@ -76,7 +77,7 @@ class SnapshotTests(unittest.TestCase):
         value = snapshot(properties(), NOW)
         self.assertTrue(value["online"])
         self.assertTrue(value["ready"])
-        self.assertEqual(value["temperature"], 25)
+        self.assertEqual(value["temperature"], 25.1)
         self.assertEqual(value["humidity"], 66)
         self.assertEqual(value["time"], datetime(2026, 10, 10, 12, 56, 28))
         self.assertEqual(value["time_at"], NOW - 1000)
@@ -86,7 +87,7 @@ class SnapshotTests(unittest.TestCase):
         value = snapshot(properties(at=NOW - 20_000), NOW)
         self.assertFalse(value["online"])
         self.assertFalse(value["ready"])
-        for key in ("temperature", "humidity", "time", "low", "high", "alarm", "muted"):
+        for key in ("temperature", "humidity", "time", "low", "high", "humidity_low", "humidity_high", "alarm", "muted"):
             self.assertIsNone(value[key])
         self.assertIsNotNone(value["last_time"])
 
@@ -99,10 +100,52 @@ class SnapshotTests(unittest.TestCase):
         self.assertIsNone(value["temperature"])
         self.assertIsNone(value["humidity"])
 
-    def test_cloud_temperature_must_be_integer(self):
-        for bad in (True, False, 25.1, "25.1", "", None, "nan", "inf"):
+    def test_cloud_temperature_accepts_real_decimals_and_zero(self):
+        for raw, expected in ((25.1, 25.1), ("25.1", 25.1), (-12.3, -12.3), ("-12.3", -12.3), (0.0, 0.0), ("0.0", 0.0), (25, 25.0)):
+            with self.subTest(value=raw):
+                self.assertEqual(snapshot(properties(CurrentTemperature=raw), NOW)["temperature"], expected)
+
+    def test_cloud_temperature_rejects_invalid_or_out_of_range(self):
+        for bad in (True, False, "", None, "nan", "inf", float("nan"), float("inf"), -40.1, 125.1, "25x", "25.1°C", [], {}):
             with self.subTest(value=bad):
                 self.assertIsNone(snapshot(properties(CurrentTemperature=bad), NOW)["temperature"])
+
+    def test_humidity_remains_integer_not_decimal(self):
+        for bad in (True, False, 66.1, "66.1", -1, 101, "nan", None):
+            with self.subTest(value=bad):
+                self.assertIsNone(snapshot(properties(CurrentHumidity=bad), NOW)["humidity"])
+        self.assertEqual(snapshot(properties(CurrentHumidity=0), NOW)["humidity"], 0)
+        self.assertEqual(snapshot(properties(CurrentHumidity=100), NOW)["humidity"], 100)
+
+    def test_humidity_threshold_pair_controls_only_humidity_readiness(self):
+        for low, high in ((0, 100), (30, 80)):
+            value = snapshot(properties(HumidityLow=low, HumidityHigh=high), NOW)
+            self.assertTrue(value["humidity_ready"])
+            self.assertEqual((value["humidity_low"], value["humidity_high"]), (low, high))
+        for changes in ({"HumidityLow": None}, {"HumidityHigh": None}, {"HumidityLow": 80}, {"HumidityHigh": 101}, {"HumidityLow": -1}, {"HumidityLow": 30.5}):
+            with self.subTest(changes=changes):
+                value = snapshot(properties(**changes), NOW)
+                self.assertTrue(value["ready"])
+                self.assertFalse(value["humidity_ready"])
+                self.assertIsNone(value["humidity_low"])
+                self.assertIsNone(value["humidity_high"])
+
+    def test_legacy_firmware_has_no_humidity_control_but_other_controls_work(self):
+        legacy = [item for item in properties() if not item["identifier"].startswith("HumidityL") and item["identifier"] != "HumidityHigh"]
+        value = snapshot(legacy, NOW)
+        self.assertTrue(value["ready"])
+        self.assertFalse(value["humidity_ready"])
+        self.assertEqual(value["humidity"], 66)
+
+    def test_humidity_threshold_freshness_is_checked_individually(self):
+        for identifier in ("HumidityLow", "HumidityHigh"):
+            for at in (NOW - 20_000, NOW + 5001):
+                with self.subTest(identifier=identifier, at=at):
+                    data = properties()
+                    next(item for item in data if item["identifier"] == identifier)["time"] = at
+                    value = snapshot(data, NOW)
+                    self.assertTrue(value["ready"])
+                    self.assertFalse(value["humidity_ready"])
 
     def test_threshold_pair_is_required_for_ready(self):
         for bad in (properties(TemperatureLow=45), properties(TemperatureHigh=None)):
@@ -131,6 +174,8 @@ class ValidationTests(unittest.TestCase):
     def test_supported_commands(self):
         for params in (
             {"TemperatureLow": 0, "TemperatureHigh": 99},
+            {"HumidityLow": 0, "HumidityHigh": 100},
+            {"HumidityLow": 30, "HumidityHigh": 80},
             {"DeviceTime": "2024-02-29 23:59:59"},
             {"AlarmMuted": True}, {"AlarmMuted": False},
         ):
@@ -145,6 +190,16 @@ class ValidationTests(unittest.TestCase):
             {"TemperatureLow": 45, "TemperatureHigh": 45},
             {"TemperatureLow": 3, "TemperatureHigh": 100},
             {"TemperatureLow": 3}, {"AlarmMuted": 1}, {"AlarmMuted": "true"},
+            {"HumidityLow": 30}, {"HumidityHigh": 80},
+            {"HumidityLow": -1, "HumidityHigh": 80},
+            {"HumidityLow": 30, "HumidityHigh": 101},
+            {"HumidityLow": 80, "HumidityHigh": 80},
+            {"HumidityLow": 81, "HumidityHigh": 80},
+            {"HumidityLow": True, "HumidityHigh": 80},
+            {"HumidityLow": 30.0, "HumidityHigh": 80},
+            {"HumidityLow": "30", "HumidityHigh": 80},
+            {"HumidityLow": 30, "HumidityHigh": 80, "AlarmMuted": True},
+            {"HumidityLow": 30, "HumidityHigh": 80, "TemperatureLow": 5, "TemperatureHigh": 45},
             {"DeviceTime": "2026-02-29 12:00:00"},
             {"DeviceTime": "1999-12-31 23:59:59"},
             {"DeviceTime": "2100-01-01 00:00:00"},
@@ -173,7 +228,7 @@ class ReadTests(unittest.TestCase):
         result = api.read_data()
         self.assertEqual(result["gateway_status"], 1)
         self.assertEqual(result["server_time"], NOW)
-        self.assertEqual(len(result["properties"]), 11)
+        self.assertEqual(len(result["properties"]), 13)
         for call in session.calls:
             self.assertEqual(call["headers"]["authorization"], "test-token-not-real")
             self.assertFalse(call["allow_redirects"])
@@ -209,10 +264,25 @@ class ReadTests(unittest.TestCase):
         api, session, _ = client([ok(history), ok({"list": []})])
         result = api.read_history()
         self.assertEqual(result["temperature"], [
+            {"time": NOW - 4000, "value": 25.1},
             {"time": NOW - 2000, "value": 24}, {"time": NOW - 1000, "value": 26},
         ])
         self.assertEqual(result["humidity"], [])
         self.assertEqual(session.calls[0]["params"]["limit"], 120)
+
+    def test_history_retains_negative_and_zero_decimal_temperature_but_integer_humidity(self):
+        api, _, _ = client([ok({"list": [
+            {"time": NOW - 3000, "value": "-5.2"},
+            {"time": NOW - 2000, "value": "0.0"},
+            {"time": NOW - 1000, "value": "25.1"},
+            {"time": NOW, "value": "NaN"},
+        ]}), ok({"list": [
+            {"time": NOW - 1000, "value": 66},
+            {"time": NOW, "value": 66.1},
+        ]})])
+        history = api.read_history()
+        self.assertEqual([point["value"] for point in history["temperature"]], [-5.2, 0.0, 25.1])
+        self.assertEqual([point["value"] for point in history["humidity"]], [66])
 
     def test_raw_error_is_not_exposed(self):
         for response in (RuntimeError("test-token-not-real private body"), Response(ValueError("test-token-not-real json")), Response({}, 403)):
@@ -224,6 +294,69 @@ class ReadTests(unittest.TestCase):
 
 
 class ControlTests(unittest.TestCase):
+    def test_confirmed_humidity_range_requires_real_updated_pair(self):
+        newer = properties(at=NOW + 1000, HumidityLow=0, HumidityHigh=100)
+        api, session, _ = client([ok(properties()), ok({"status": 1}), ok({"code": 200}), ok(newer)])
+        self.assertTrue(api.control({"HumidityLow": 0, "HumidityHigh": 100})["confirmed"])
+        posts = [call for call in session.calls if call["method"] == "POST"]
+        self.assertEqual(len(posts), 1)
+        self.assertEqual(posts[0]["json"]["params"], {"HumidityLow": 0, "HumidityHigh": 100})
+
+    def test_humidity_old_matching_values_do_not_confirm_execution(self):
+        baseline = properties(HumidityLow=20, HumidityHigh=90)
+        api, session, clock = client([ok(baseline), ok({"status": 1}), ok({"code": 200}), ok(baseline)])
+        with self.assertRaisesRegex(OneNetError, "最新状态未核对"):
+            api.control({"HumidityLow": 20, "HumidityHigh": 90})
+        self.assertGreaterEqual(clock.ms - NOW, 8000)
+        self.assertEqual(len([call for call in session.calls if call["method"] == "POST"]), 1)
+
+    def test_humidity_partial_changed_or_unfresh_pair_does_not_confirm(self):
+        for changed in ("old_high_stamp", "wrong_high_value", "far_future_pair"):
+            with self.subTest(changed=changed):
+                newer = properties(at=NOW + 1000, HumidityLow=20, HumidityHigh=90)
+                high = next(item for item in newer if item["identifier"] == "HumidityHigh")
+                if changed == "old_high_stamp":
+                    high["time"] = NOW - 1000
+                elif changed == "wrong_high_value":
+                    high["value"] = 80
+                else:
+                    for item in newer:
+                        if item["identifier"] in ("HumidityLow", "HumidityHigh"):
+                            item["time"] = NOW + 60_000
+                api, session, _ = client([ok(properties()), ok({"status": 1}), ok({"code": 200}), ok(newer)])
+                with self.assertRaisesRegex(OneNetError, "最新状态未核对"):
+                    api.control({"HumidityLow": 20, "HumidityHigh": 90})
+                self.assertEqual(len([call for call in session.calls if call["method"] == "POST"]), 1)
+
+    def test_humidity_unknown_stale_or_invalid_pair_never_posts(self):
+        legacy = [item for item in properties() if item["identifier"] not in ("HumidityLow", "HumidityHigh")]
+        stale = properties()
+        next(item for item in stale if item["identifier"] == "HumidityHigh")["time"] = NOW - 20_000
+        for baseline in (legacy, stale, properties(HumidityLow=80, HumidityHigh=80)):
+            with self.subTest(baseline=baseline):
+                api, session, _ = client([ok(baseline), ok({"status": 1})])
+                with self.assertRaisesRegex(OneNetError, "湿度阈值"):
+                    api.control({"HumidityLow": 20, "HumidityHigh": 90})
+                self.assertFalse(any(call["method"] == "POST" for call in session.calls))
+
+    def test_humidity_expiring_during_gateway_query_never_posts(self):
+        clock = Clock()
+
+        class SlowSession(Session):
+            def request(self, method, url, **kwargs):
+                response = super().request(method, url, **kwargs)
+                if url.endswith("/device/detail"):
+                    clock.sleep(2)
+                return response
+
+        baseline = properties()
+        next(item for item in baseline if item["identifier"] == "HumidityHigh")["time"] = NOW - 19_000
+        session = SlowSession([ok(baseline), ok({"status": 1})])
+        api = OneNetClient(OneNetSettings("test-token-not-real", "p", "d"), session=session, clock=clock.now, sleep=clock.sleep)
+        with self.assertRaisesRegex(OneNetError, "湿度阈值"):
+            api.control({"HumidityLow": 20, "HumidityHigh": 90})
+        self.assertFalse(any(call["method"] == "POST" for call in session.calls))
+
     def test_confirmed_thresholds_require_new_property_timestamps(self):
         newer = properties(at=NOW + 1000, TemperatureLow=10, TemperatureHigh=50)
         api, session, _ = client([ok(properties()), ok({"status": 1}), ok({"code": 200}), ok(newer)])
@@ -263,7 +396,7 @@ class ControlTests(unittest.TestCase):
 
     def test_mute_requires_active_alarm(self):
         api, session, _ = client([ok(properties()), ok({"status": 1})])
-        with self.assertRaisesRegex(OneNetError, "没有有效温度报警"):
+        with self.assertRaisesRegex(OneNetError, "没有有效温湿度报警"):
             api.control({"AlarmMuted": True})
         self.assertFalse(any(call["method"] == "POST" for call in session.calls))
 

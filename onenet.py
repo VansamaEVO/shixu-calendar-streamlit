@@ -13,7 +13,7 @@ import requests
 
 FIELDS = (
     "CurrentTemperature", "CurrentHumidity", "DeviceTime", "TemperatureLow",
-    "TemperatureHigh", "AlarmActive", "AlarmMuted", "McuOnline",
+    "TemperatureHigh", "HumidityLow", "HumidityHigh", "AlarmActive", "AlarmMuted", "McuOnline",
     "ControlReady", "TemperatureValid", "HumidityValid",
 )
 FRESH_MS = 20_000
@@ -73,6 +73,18 @@ def _integer(value: Any, minimum: int, maximum: int):
         return None
 
 
+def _decimal(value: Any, minimum: float, maximum: float):
+    if isinstance(value, bool) or type(value) not in (int, float, str):
+        return None
+    if isinstance(value, str) and not re.fullmatch(r"-?[0-9]+(?:\.[0-9]+)?", value):
+        return None
+    try:
+        number = float(value)
+        return number if math.isfinite(number) and minimum <= number <= maximum else None
+    except (ValueError, OverflowError):
+        return None
+
+
 def _parse_time(value: Any):
     if not isinstance(value, str) or not re.fullmatch(
         r"20[0-9]{2}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}", value
@@ -109,7 +121,8 @@ def snapshot(properties, now_ms=None) -> dict:
 
     def number(identifier, minimum, maximum):
         item = fresh(identifier)
-        return _integer(item.get("value"), minimum, maximum) if item else None
+        parser = _decimal if identifier == "CurrentTemperature" else _integer
+        return parser(item.get("value"), minimum, maximum) if item else None
 
     online = flag("McuOnline") is True
     time_prop = entries.get("DeviceTime", {})
@@ -118,6 +131,9 @@ def snapshot(properties, now_ms=None) -> dict:
     low = number("TemperatureLow", 0, 99)
     high = number("TemperatureHigh", 0, 99)
     limits_valid = low is not None and high is not None and low < high
+    humidity_low = number("HumidityLow", 0, 100)
+    humidity_high = number("HumidityHigh", 0, 100)
+    humidity_limits_valid = humidity_low is not None and humidity_high is not None and humidity_low < humidity_high
     alarm = flag("AlarmActive") if online else None
     muted = flag("AlarmMuted") if online else None
     # 时间、阈值和报警状态也要有效，不能只凭一个旧的 ready 标志打开控制。
@@ -136,6 +152,9 @@ def snapshot(properties, now_ms=None) -> dict:
         "last_time": last_time,
         "low": low if online and limits_valid else None,
         "high": high if online and limits_valid else None,
+        "humidity_low": humidity_low if online and humidity_limits_valid else None,
+        "humidity_high": humidity_high if online and humidity_limits_valid else None,
+        "humidity_ready": bool(ready and humidity_limits_valid),
         "alarm": alarm,
         "muted": muted,
         "time_at": _stamp(time_prop.get("time")),
@@ -154,11 +173,15 @@ def validate_params(params) -> dict:
     elif keys == {"DeviceTime"}:
         if _parse_time(params["DeviceTime"]) is None:
             raise OneNetError("日期时间无效，仅支持 2000–2099 年")
+    elif keys == {"HumidityLow", "HumidityHigh"}:
+        low, high = params["HumidityLow"], params["HumidityHigh"]
+        if type(low) is not int or type(high) is not int or not 0 <= low < high <= 100:
+            raise OneNetError("湿度范围须为 0–100 之间的整数，且下限小于上限")
     elif keys == {"AlarmMuted"}:
         if type(params["AlarmMuted"]) is not bool:
             raise OneNetError("静音参数须为布尔值")
     else:
-        raise OneNetError("一次只能修改日期时间、温度范围或本次静音")
+        raise OneNetError("一次只能修改日期时间、温度范围、湿度范围或临时消音")
     return dict(params)
 
 
@@ -170,7 +193,8 @@ def _code_matches(value: Any, expected: int) -> bool:
 
 
 def _state_matches(properties, params, sent_at, now_ms, baseline) -> bool:
-    if not snapshot(properties, now_ms)["ready"]:
+    state = snapshot(properties, now_ms)
+    if not state["ready"] or ("HumidityLow" in params and not state["humidity_ready"]):
         return False
     current, previous = _property_map(properties), _property_map(baseline)
     for identifier, expected in params.items():
@@ -190,7 +214,7 @@ def _state_matches(properties, params, sent_at, now_ms, baseline) -> bool:
             elapsed = (actual_time - requested_time).total_seconds() * 1000
             if not -1000 <= elapsed <= now_ms - sent_at + 5000:
                 return False
-        elif _integer(item.get("value"), 0, 99) != expected:
+        elif _integer(item.get("value"), 0, 100 if identifier.startswith("Humidity") else 99) != expected:
             return False
     return True
 
@@ -285,7 +309,8 @@ class OneNetClient:
                 if not isinstance(item, dict):
                     continue
                 at = _stamp(item.get("time"))
-                value = _integer(item.get("value"), minimum, maximum)
+                parser = _decimal if identifier == "CurrentTemperature" else _integer
+                value = parser(item.get("value"), minimum, maximum)
                 if start <= at <= end + FUTURE_TOLERANCE_MS and value is not None:
                     points[at] = value
             result[name] = [{"time": at, "value": points[at]} for at in sorted(points)[-120:]]
@@ -305,7 +330,9 @@ class OneNetClient:
             if baseline_data["gateway_status"] != 1 or not before["online"] or not before["ready"]:
                 raise OneNetError("设备离线、状态过期或双向串口未就绪，未发送控制命令")
             if "AlarmMuted" in params and before["alarm"] is not True:
-                raise OneNetError("当前没有有效温度报警，无需修改本次静音")
+                raise OneNetError("当前没有有效温湿度报警，无需修改临时消音")
+            if "HumidityLow" in params and not before["humidity_ready"]:
+                raise OneNetError("尚无新鲜湿度阈值，请发布物模型并更新51与ESP固件")
             sent_at = self._now()
             self._last_command_at = sent_at
             # POST 只发一次。超时并不证明设备没有执行，不能自动重发。

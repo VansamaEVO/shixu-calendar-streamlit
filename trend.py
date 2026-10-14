@@ -32,12 +32,12 @@ def history_chart(history):
         line = source.mark_line(color=color, strokeWidth=2.5, clip=True).encode(
             x=alt.X("时间:T", axis=alt.Axis(title="北京时间", format="%H:%M", labelAngle=0, tickCount=5, grid=False)),
             y=alt.Y("数值:Q", axis=alt.Axis(title=title, orient=orient, grid=orient == "left", titleColor=color, tickCount=5), scale=alt.Scale(domain=domain, nice=False)),
-            tooltip=[alt.Tooltip("时间:T", title="北京时间", format="%H:%M:%S"), alt.Tooltip("数值:Q", title=title)],
+            tooltip=[alt.Tooltip("时间:T", title="北京时间", format="%H:%M:%S"), alt.Tooltip("数值:Q", title=title, format=".1f" if orient == "left" else ".0f")],
         )
         # 单个样本仍可见；不补点、不插值生成虚假读数。
         dots = source.mark_point(color=color, filled=True, size=20, opacity=0.7).encode(
             x="时间:T", y="数值:Q",
-            tooltip=[alt.Tooltip("时间:T", title="北京时间", format="%H:%M:%S"), alt.Tooltip("数值:Q", title=title)],
+            tooltip=[alt.Tooltip("时间:T", title="北京时间", format="%H:%M:%S"), alt.Tooltip("数值:Q", title=title, format=".1f" if orient == "left" else ".0f")],
         )
         return alt.layer(line, dots)
 

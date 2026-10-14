@@ -36,10 +36,11 @@ class CalendarUiTests(unittest.TestCase):
         self.now = int(datetime(2026, 10, 10, 15, 45, tzinfo=timezone.utc).timestamp() * 1000)
         self.snapshot = {
             "online": True, "ready": True,
-            "temperature": 25, "humidity": 69,
+            "temperature": 25.1, "humidity": 69,
             "time": datetime(2026, 10, 10, 23, 45),
             "last_time": datetime(2026, 10, 10, 23, 45),
-            "low": 5, "high": 45, "alarm": False, "muted": False,
+            "low": 5, "high": 45, "humidity_low": 30, "humidity_high": 80,
+            "humidity_ready": True, "alarm": False, "muted": False,
             "updated_at": self.now, "time_at": self.now,
         }
 
@@ -53,7 +54,7 @@ class CalendarUiTests(unittest.TestCase):
         self.assertIn("2026 年 10 月 10 日", page)
         self.assertIn("星期六", page)
         self.assertIn("不是手机时间", page)
-        self.assertIn(">25<small> °C", page)
+        self.assertIn(">25.1<small> °C", page)
         self.assertIn(">69<small> %", page)
         self.assertIn("当前无报警", page)
         self.assertNotIn("calendar-clock-frozen", page)
@@ -67,11 +68,11 @@ class CalendarUiTests(unittest.TestCase):
 
     def test_missing_muted_flag_does_not_imply_audible_alarm(self):
         page = self.render(alarm=True, muted=None)
-        self.assertIn("温度超出提醒范围（声音状态待更新）", page)
+        self.assertIn("温湿度越限（声音状态待更新）", page)
         self.assertIn("不能判断当前声音", page)
         self.assertIn("calendar-alarming", page)
         self.assertNotIn("当前提醒已静音", page)
-        self.assertNotIn("可在日历设置中关闭本次声音提醒", page)
+        self.assertNotIn("可在日历设置中临时消音约10秒", page)
 
     def test_false_alarm_remains_clear_when_muted_unknown(self):
         page = self.render(alarm=False, muted=None)
@@ -82,11 +83,12 @@ class CalendarUiTests(unittest.TestCase):
         page = self.render(alarm=True, muted=True)
         self.assertIn("当前提醒已静音", page)
         self.assertIn("calendar-muted", page)
+        self.assertIn("临时消音约10秒，仍超限将自动再次报警", page)
 
     def test_known_unmuted_alarm(self):
         page = self.render(alarm=True, muted=False)
-        self.assertIn("温度超出提醒范围", page)
-        self.assertIn("可在日历设置中关闭本次声音提醒", page)
+        self.assertIn("温湿度超出提醒范围", page)
+        self.assertIn("可在日历设置中临时消音约10秒", page)
         self.assertNotIn("当前提醒已静音", page)
 
     def test_invalid_boolean_is_unknown(self):
@@ -134,7 +136,7 @@ class CalendarUiTests(unittest.TestCase):
     def test_stale_time_only_keeps_other_current_values(self):
         page = self.render(time_at=self.now - 20_000)
         self.assertIn("calendar-clock-frozen", page)
-        self.assertIn(">25<small> °C", page)
+        self.assertIn(">25.1<small> °C", page)
         self.assertIn("最后收到的设备日期", page)
 
     def test_no_device_date_is_explicit_browser_date(self):
@@ -166,6 +168,20 @@ class CalendarUiTests(unittest.TestCase):
         self.assertNotIn("onerror", page)
         self.assertIn(">--<small> °C", page)
         self.assertIn(">--<small> %", page)
+
+    def test_temperature_display_has_one_decimal_including_zero_and_negative(self):
+        for value, shown in ((25.1, "25.1"), (25, "25.0"), (0.0, "0.0"), (-12.3, "-12.3")):
+            with self.subTest(value=value):
+                self.assertIn(f">{shown}<small> °C", self.render(temperature=value))
+        self.assertIn(">69<small> %", self.render())
+        self.assertNotIn(">69.0<small> %", self.render())
+
+    def test_invalid_temperature_has_no_synthetic_zero(self):
+        for value in (None, True, float("nan"), float("inf"), -40.1, 125.1):
+            with self.subTest(value=value):
+                page = self.render(temperature=value)
+                self.assertIn(">--<small> °C", page)
+                self.assertNotIn(">0.0<small> °C", page)
 
     def test_malformed_timestamp_and_out_of_rtc_year_do_not_crash(self):
         self.assertEqual(ui._timestamp_label(1e300), "--")
@@ -206,6 +222,8 @@ class CalendarUiTests(unittest.TestCase):
         page = ui.settings_summary_html(self.snapshot)
         self.assertIn("5 °C", page)
         self.assertIn("45 °C", page)
+        self.assertIn("30%", page)
+        self.assertIn("80%", page)
         self.assertIn("当前无报警", page)
         self.assertIn('left:5%;width:40%', page)
         offline = ui.settings_summary_html(dict(self.snapshot, online=False))
@@ -217,9 +235,10 @@ class CalendarUiTests(unittest.TestCase):
     def test_summary_unknown_flags_do_not_claim_silence(self):
         page = ui.settings_summary_html(dict(self.snapshot, alarm=True, muted=None))
         self.assertIn("声音状态待更新", page)
-        self.assertNotIn("本次已静音", page)
+        self.assertNotIn("临时消音中", page)
         page = ui.settings_summary_html(dict(self.snapshot, alarm=True, muted=True))
-        self.assertIn("本次已静音", page)
+        self.assertIn("临时消音中", page)
+        self.assertIn("约10秒后仍超限会再次报警", page)
 
     def test_trend_empty_grid_and_safe_text(self):
         heading = ui.trend_heading_html()

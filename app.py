@@ -41,7 +41,7 @@ def china_now():
 
 
 def reset_drafts():
-    for key in ("draft_low", "draft_high", "draft_date", "draft_time"):
+    for key in ("draft_low", "draft_high", "draft_humidity_low", "draft_humidity_high", "draft_date", "draft_time"):
         st.session_state.pop(key, None)
 
 
@@ -88,13 +88,15 @@ def render_controls(client, state):
     for key, value in {
         "draft_low": state["low"] if state["low"] is not None else 5,
         "draft_high": state["high"] if state["high"] is not None else 45,
+        "draft_humidity_low": state.get("humidity_low") if state.get("humidity_low") is not None else 30,
+        "draft_humidity_high": state.get("humidity_high") if state.get("humidity_high") is not None else 80,
         "draft_date": defaults.date(),
         "draft_time": defaults.strftime("%H:%M:%S"),
     }.items():
         if key not in st.session_state:
             st.session_state[key] = value
 
-    clock_tab, limits_tab, sound_tab = st.tabs(["日期时间", "温度提醒", "蜂鸣器"], key="settings_sections")
+    clock_tab, limits_tab, humidity_tab, sound_tab = st.tabs(["日期时间", "温度提醒", "湿度提醒", "蜂鸣器"], key="settings_sections")
     with clock_tab:
         st.caption("设置日历的日期和时间，星期会自动更新。")
         with st.form("clock_form", clear_on_submit=False, border=False):
@@ -128,24 +130,40 @@ def render_controls(client, state):
                 send_command(client, {"TemperatureLow": int(low), "TemperatureHigh": int(high)}, "温度范围已更新")
                 st.rerun()
 
+    with humidity_tab:
+        humidity_ready = state.get("humidity_ready", False)
+        st.caption("湿度超出范围也会报警，温湿度共用蜂鸣器，范围保存到51的EEPROM。")
+        with st.form("humidity_limits_form", clear_on_submit=False, border=False):
+            low_column, high_column = st.columns(2, gap="medium")
+            with low_column:
+                humidity_low = st.number_input("湿度下限 / %RH", min_value=0, max_value=100, step=1, key="draft_humidity_low", disabled=not humidity_ready)
+            with high_column:
+                humidity_high = st.number_input("湿度上限 / %RH", min_value=0, max_value=100, step=1, key="draft_humidity_high", disabled=not humidity_ready)
+            st.caption("0–100%RH，下限必须小于上限；等于上下限不报警。")
+            if st.form_submit_button("保存湿度范围", type="primary", disabled=not humidity_ready, use_container_width=True):
+                send_command(client, {"HumidityLow": int(humidity_low), "HumidityHigh": int(humidity_high)}, "湿度范围已更新")
+                st.rerun()
+        if not humidity_ready:
+            st.caption("等待HumidityLow、HumidityHigh最新上报；请先发布物模型，并更新51与ESP固件。")
+
     with sound_tab:
         alarm = state.get("alarm") is True
         muted = state.get("muted")
         if state.get("alarm") is None:
             st.caption("等待设备回传报警状态，暂不能判断蜂鸣器声音。")
         elif not alarm:
-            st.caption("当前没有有效温度报警，无需静音。")
+            st.caption("当前没有有效温湿度报警，无需消音。")
         elif muted is True:
-            st.caption("本次报警已静音。")
+            st.caption("临时消音中，约10秒后仍超限会再次报警。")
         elif muted is False:
-            st.caption("当前温度报警正在发声。")
+            st.caption("温度或湿度越限，蜂鸣器正在报警。")
         else:
             st.caption("报警已触发，声音状态待更新。")
-        st.html('<p class="calendar-sound-note">静音只作用于本次温度报警。温度恢复正常后，下次越限仍会提醒。</p>')
+        st.html('<p class="calendar-sound-note">消音不会关闭监测。约10秒后51复检：仍超限会再次报警，恢复范围内则解除报警。</p>')
         mute_column, unmute_column = st.columns(2, gap="medium")
         with mute_column:
-            if st.button("本次静音", key="mute", disabled=not (ready and alarm and muted is False), use_container_width=True):
-                send_command(client, {"AlarmMuted": True}, "本次报警已静音")
+            if st.button("消音约10秒", key="mute", disabled=not (ready and alarm and muted is False), use_container_width=True):
+                send_command(client, {"AlarmMuted": True}, "临时消音已开启（仍超限将再次报警）")
                 st.rerun()
         with unmute_column:
             if st.button("恢复声音", key="unmute", disabled=not (ready and alarm and muted is True), use_container_width=True):
@@ -219,10 +237,11 @@ def main():
         now_ms = int(time.time() * 1000)
         state = snapshot(properties, now_ms)
         if gateway != 1 or error:
-            state.update(online=False, ready=False, temperature=None, humidity=None, time=None, alarm=None, muted=None)
+            state.update(online=False, ready=False, humidity_ready=False, temperature=None, humidity=None, time=None, alarm=None, muted=None)
         st.session_state["current_snapshot"] = state
         st.session_state["current_gateway"] = gateway
-        signature = (gateway, state["ready"], state["alarm"], state["muted"], state["low"], state["high"])
+        signature = (gateway, state["ready"], state["alarm"], state["muted"], state["low"], state["high"],
+                     state["humidity_ready"], state["humidity_low"], state["humidity_high"])
         previous = st.session_state.get("controls_signature")
         if previous is not None and previous != signature:
             # 仅在控制状态/已生效阈值变化时重绘，草稿不会被常规轮询覆盖。

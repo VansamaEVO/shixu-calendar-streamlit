@@ -77,6 +77,9 @@
 .calendar-metric-note { margin: 8px 0 0; color: #61747b; font-size: 13px; line-height: 1.7; }
 .calendar-limit { font-family: var(--calendar-number); font-size: 29px; line-height: 1.35; font-weight: 550; font-variant-numeric: tabular-nums; margin: 13px 0 9px; }
 .calendar-limit small { font-size: 17px; }
+.calendar-humidity-limit { margin: 0 0 12px; color: #61747b; font-size: 13px; }
+.calendar-humidity-limit strong { margin-left: 7px; color: #368f89; font-family: var(--calendar-number); font-size: 21px; font-weight: 550; }
+.calendar-humidity-limit small { font-size: 12px; }
 .calendar-limit span { display: block; font-family: "Microsoft YaHei UI", sans-serif; font-size: 12px; font-weight: 400; color: #61747b; margin-top: 2px; }
 .calendar-alarm { display: flex; gap: 8px; align-items: center; font-size: 15px; color: #387e69; font-weight: 550; }
 .calendar-offline ~ span { color: #5b6f77; }
@@ -105,7 +108,7 @@
 .st-key-calendar-settings-panel [role="tab"]:focus-visible { outline: 3px solid #91b9b4; outline-offset: 1px; }
 .st-key-calendar-settings-panel [data-testid="stCaptionContainer"] p { font-size: 14px; line-height: 1.75; color: #81939c; }
 .st-key-calendar-settings-panel [data-testid="stFormSubmitButton"] button { min-height: 50px; font-size: 16px; }
-.calendar-settings-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; border-top: 1px solid var(--calendar-line); padding-top: 21px; margin-top: 5px; }
+.calendar-settings-summary { display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 22px; border-top: 1px solid var(--calendar-line); padding-top: 21px; margin-top: 5px; }
 .calendar-settings-summary p { margin: 0 0 9px; font-size: 13px; color: #81939c; }
 .calendar-settings-summary strong { font-family: var(--calendar-number); font-size: 23px; font-weight: 600; line-height: 1.4; font-variant-numeric: tabular-nums; }
 .calendar-settings-summary strong span { color: #9badb4; padding: 0 3px; font-weight: 400; }
@@ -200,8 +203,9 @@
   .st-key-calendar-settings-panel [data-testid="stHorizontalBlock"] { flex-wrap: wrap; }
   .st-key-calendar-settings-panel [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] { width: 100%; flex: 1 1 100%; min-width: 0; }
   .st-key-calendar-settings-panel [role="tab"] { padding: 7px 4px; min-height: 44px; }
-  .st-key-calendar-settings-panel [role="tab"] p { font-size: 15px; }
-  .calendar-settings-summary { gap: 14px; }
+  .st-key-calendar-settings-panel [role="tab"] p { font-size: 13px; }
+  .calendar-settings-summary { grid-template-columns: 1fr 1fr; gap: 18px 14px; }
+  .calendar-settings-summary > div:last-child { grid-column: 1 / -1; }
   .calendar-settings-summary strong { font-size: 20px; }
   .calendar-summary-state { font-size: 17px; }
   .calendar-trend-heading { gap: 11px; }

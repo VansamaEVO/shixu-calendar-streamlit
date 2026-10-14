@@ -69,11 +69,11 @@ def _fresh(timestamp: Any, now_ms: int) -> bool:
     return instant is not None and 0 < instant <= now_ms + 5_000 and now_ms - instant < STALE_AFTER_MS
 
 
-def _display_number(value: Any, minimum: float, maximum: float) -> str:
+def _display_number(value: Any, minimum: float, maximum: float, decimals: int | None = None) -> str:
     number = _number(value)
     if number is None or not minimum <= number <= maximum:
         return "--"
-    return f"{number:g}"
+    return f"{number:.{decimals}f}" if decimals is not None else f"{number:g}"
 
 
 def _timestamp_label(value: Any) -> str:
@@ -137,21 +137,25 @@ def settings_summary_html(state: dict) -> str:
     low, high = _number(state.get("low")), _number(state.get("high"))
     valid_limits = online and low is not None and high is not None and 0 <= low < high <= 99
     limits = f"{low:g} °C <span>–</span> {high:g} °C" if valid_limits else "-- °C <span>–</span> -- °C"
+    humidity_low, humidity_high = _number(state.get("humidity_low")), _number(state.get("humidity_high"))
+    valid_humidity = online and humidity_low is not None and humidity_high is not None and 0 <= humidity_low < humidity_high <= 100
+    humidity_limits = f"{humidity_low:g}% <span>–</span> {humidity_high:g}%" if valid_humidity else "--% <span>–</span> --%"
     alarm, muted = _flag(state.get("alarm")), _flag(state.get("muted"))
     if not online or alarm is None:
         status, note, tone = "等待信息", "连接后显示设备状态", "waiting"
     elif alarm is False:
-        status, note, tone = "当前无报警", "当前设备未触发温度报警", "normal"
+        status, note, tone = "当前无报警", "当前设备未触发超限报警", "normal"
     elif muted is True:
-        status, note, tone = "本次已静音", "下次温度越限仍会提醒", "muted"
+        status, note, tone = "临时消音中", "约10秒后仍超限会再次报警", "muted"
     elif muted is False:
-        status, note, tone = "温度越限", "本次报警声音已开启", "alarming"
+        status, note, tone = "温湿度越限", "蜂鸣器正在报警", "alarming"
     else:
-        status, note, tone = "温度越限", "声音状态待更新", "alarming"
+        status, note, tone = "温湿度越限", "声音状态待更新", "alarming"
     bar = f'<i style="left:{low:g}%;width:{high-low:g}%"></i>' if valid_limits else ""
     return f"""
     <div class="calendar-settings-summary">
-      <div><p>当前提醒范围</p><strong>{limits}</strong><div class="calendar-range-track" aria-hidden="true">{bar}</div></div>
+      <div><p>当前温度范围</p><strong>{limits}</strong><div class="calendar-range-track" aria-hidden="true">{bar}</div></div>
+      <div><p>当前湿度范围</p><strong>{humidity_limits}</strong><small>相对湿度 %RH</small></div>
       <div><p>提醒状态</p><div class="calendar-summary-state calendar-summary-{tone}"><i aria-hidden="true"></i>{status}</div><small>{note}</small></div>
     </div>
     """
@@ -243,13 +247,16 @@ def dashboard_html(snapshot: dict, gateway_status: int, now_ms: int) -> str:
     clock_label = "设备实时时钟" if time_current else "最后收到的设备时间" if shown_time else "设备实时时钟"
     clock_hint = "显示 51 的 RTC 上报值，每 5 秒刷新；不是手机时间。" if time_current else "当前未收到新时间，最后记录已冻结。" if shown_time else "设备上线后，这里将显示 51 的 RTC 时间。"
 
-    temperature = _display_number(snapshot.get("temperature"), -40, 125) if online else "--"
+    temperature = _display_number(snapshot.get("temperature"), -40, 125, decimals=1) if online else "--"
     humidity = _display_number(snapshot.get("humidity"), 0, 100) if online else "--"
-    temperature_note = "DS18B20 · OneNet 云端整数值" if temperature != "--" else "暂未收到有效温度" if online else "设备离线，暂停显示实时温度"
+    temperature_note = "DS18B20 · 真实温度保留一位小数" if temperature != "--" else "暂未收到有效温度" if online else "设备离线，暂停显示实时温度"
     humidity_note = "DHT11 · 空气相对湿度" if humidity != "--" else "暂未收到有效湿度" if online else "设备离线，暂停显示实时湿度"
     low = _display_number(snapshot.get("low"), 0, 99)
     high = _display_number(snapshot.get("high"), 0, 99)
     threshold_text = f"{low}–{high}" if low != "--" and high != "--" else "--"
+    humidity_low = _display_number(snapshot.get("humidity_low"), 0, 100)
+    humidity_high = _display_number(snapshot.get("humidity_high"), 0, 100)
+    humidity_threshold_text = f"{humidity_low}–{humidity_high}" if humidity_low != "--" and humidity_high != "--" else "--"
     threshold_note = "当前设备设置" if online else "最后收到的设置" if threshold_text != "--" else "等待设备设置"
     alarm = _flag(snapshot.get("alarm")) if online else None
     muted = _flag(snapshot.get("muted")) if online else None
@@ -258,16 +265,16 @@ def dashboard_html(snapshot: dict, gateway_status: int, now_ms: int) -> str:
         alarm_note = "尚未收到有效报警状态，不判断是否正在报警。" if online else "离线时不会把旧报警显示为当前状态。"
     elif alarm is False:
         alarm_text, alarm_class = "当前无报警", ""
-        alarm_note = "温度超出设定范围时，蜂鸣器会提醒。"
+        alarm_note = "温度或湿度任一项越限时，蜂鸣器会提醒。"
     elif muted is None:
-        alarm_text, alarm_class = "温度超出提醒范围（声音状态待更新）", "calendar-alarming"
+        alarm_text, alarm_class = "温湿度越限（声音状态待更新）", "calendar-alarming"
         alarm_note = "报警状态已更新，静音状态尚未收到，不能判断当前声音。"
     elif muted is True:
         alarm_text, alarm_class = "当前提醒已静音", "calendar-muted"
-        alarm_note = "温度恢复正常后，下次越限会重新提醒。"
+        alarm_note = "临时消音约10秒，仍超限将自动再次报警。"
     else:
-        alarm_text, alarm_class = "温度超出提醒范围", "calendar-alarming"
-        alarm_note = "可在日历设置中关闭本次声音提醒。"
+        alarm_text, alarm_class = "温湿度超出提醒范围", "calendar-alarming"
+        alarm_note = "可在日历设置中临时消音约10秒。"
     status_class = "calendar-online" if online else "calendar-offline"
     last_update = _timestamp_label(snapshot.get("updated_at"))
 
@@ -299,8 +306,9 @@ def dashboard_html(snapshot: dict, gateway_status: int, now_ms: int) -> str:
           <p class="calendar-metric-note">{humidity_note}</p>
         </article>
         <article class="calendar-card calendar-reminder {alarm_class}">
-          <div class="calendar-metric-head"><h2>温度提醒</h2><span class="calendar-metric-icon calendar-neutral">{_icon('bell')}</span></div>
+          <div class="calendar-metric-head"><h2>温湿度提醒</h2><span class="calendar-metric-icon calendar-neutral">{_icon('bell')}</span></div>
           <div class="calendar-limit">{threshold_text}<small> °C</small><span>{threshold_note}</span></div>
+          <div class="calendar-humidity-limit">湿度 <strong>{humidity_threshold_text}</strong><small> %RH</small></div>
           <div class="calendar-alarm"><i aria-hidden="true"></i>{alarm_text}</div>
           <p class="calendar-metric-note">{alarm_note}</p>
         </article>
