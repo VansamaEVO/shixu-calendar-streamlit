@@ -247,3 +247,35 @@
 @media (prefers-reduced-motion: reduce) {
   .calendar-overview *, .calendar-topbar *, .calendar-navigation * { transition: none !important; animation: none !important; }
 }
+
+/* Compact, read-only extension cards; the existing calendar/settings are unchanged. */
+.calendar-expansion { margin-top: 24px; }
+.calendar-expansion-heading, .calendar-module-head, .calendar-module-title, .calendar-module-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.calendar-expansion-heading { margin: 0 3px 13px; }
+.calendar-expansion-heading h2 { margin: 0; font-size: 19px; font-weight: 600; }
+.calendar-expansion-heading > span { color: #8c9d9f; font-size: 12px; }
+.calendar-expansion-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.calendar-module { min-width: 0; padding: 22px 25px; }
+.calendar-alcohol { background: #f7fbf8; border-color: #dde9df; }
+.calendar-motor { background: #f7f9fb; border-color: #e0e7ec; }
+.calendar-module-title { justify-content: flex-start; gap: 9px; color: #43665b; font-size: 15px; font-weight: 600; }
+.calendar-module-title svg { width: 21px; height: 21px; }
+.calendar-module-state { color: #899c92; font-size: 11px; white-space: nowrap; }
+.calendar-module-value { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; margin: 17px 0; color: #315c4d; font-family: var(--calendar-number); font-size: 38px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.calendar-module-value small { font-size: 17px; font-weight: 400; color: #91a296; }
+.calendar-module-value > span { margin-left: auto; color: #8c9c93; font-size: 12px; }
+.calendar-module-value b { color: #5d7c6d; font-size: 19px; font-weight: 500; }
+.calendar-alcohol-bars, .calendar-motor-stages { display: flex; gap: 5px; }
+.calendar-alcohol-bars { padding: 8px 0; }
+.calendar-alcohol-bars i { flex: 1; height: 7px; border-radius: 3px; background: #e0e9e1; }
+.calendar-alcohol-bars i.is-on { background: #7da38a; }
+.calendar-motor-stages span { flex: 1; padding: 4px 0; border-radius: 5px; background: #eaf0f3; color: #96a5ac; text-align: center; font-size: 11px; }
+.calendar-motor-stages .is-selected { background: #d8e6e2; color: #416c5d; }
+.calendar-module-meta { margin: 12px 0 5px; color: #84998b; font-size: 11px; }
+.calendar-module-meta span { color: #9bab9f; }
+.calendar-module-note { margin: 0; color: #99a59d; font-size: 11px; line-height: 1.65; }
+@media (max-width: 680px) {
+  .calendar-expansion-grid { grid-template-columns: 1fr; gap: 12px; }
+  .calendar-expansion-heading > span { font-size: 10px; }
+  .calendar-module { padding: 20px; }
+}

@@ -6,7 +6,15 @@
       "functionType": "u",
       "accessMode": "r",
       "desc": "51的DS18B20真实温度，经ESP8266上传，保留一位小数；报警阈值仍为整数",
-      "dataType": {"type": "float", "specs": {"min": "-40", "max": "125", "unit": "℃", "step": "0.1"}}
+      "dataType": {
+        "type": "float",
+        "specs": {
+          "min": "-40",
+          "max": "125",
+          "unit": "℃",
+          "step": "0.1"
+        }
+      }
     },
     {
       "identifier": "CurrentHumidity",
@@ -14,7 +22,15 @@
       "functionType": "u",
       "accessMode": "r",
       "desc": "ESP8266上传的环境湿度",
-      "dataType": {"type": "int32", "specs": {"min": "0", "max": "100", "unit": "相对湿度 / %RH", "step": "1"}}
+      "dataType": {
+        "type": "int32",
+        "specs": {
+          "min": "0",
+          "max": "100",
+          "unit": "相对湿度 / %RH",
+          "step": "1"
+        }
+      }
     },
     {
       "identifier": "alarmData",
@@ -22,7 +38,12 @@
       "functionType": "st",
       "accessMode": "r",
       "desc": "",
-      "dataType": {"type": "string", "specs": {"length": "256"}}
+      "dataType": {
+        "type": "string",
+        "specs": {
+          "length": "256"
+        }
+      }
     },
     {
       "identifier": "normalData",
@@ -30,7 +51,12 @@
       "functionType": "st",
       "accessMode": "r",
       "desc": "正常周期上报字符串",
-      "dataType": {"type": "string", "specs": {"length": "256"}}
+      "dataType": {
+        "type": "string",
+        "specs": {
+          "length": "256"
+        }
+      }
     },
     {
       "identifier": "resultCom",
@@ -38,7 +64,12 @@
       "functionType": "st",
       "accessMode": "rw",
       "desc": "",
-      "dataType": {"type": "string", "specs": {"length": "256"}}
+      "dataType": {
+        "type": "string",
+        "specs": {
+          "length": "256"
+        }
+      }
     },
     {
       "identifier": "writeCom",
@@ -46,7 +77,12 @@
       "functionType": "st",
       "accessMode": "rw",
       "desc": "",
-      "dataType": {"type": "string", "specs": {"length": "256"}}
+      "dataType": {
+        "type": "string",
+        "specs": {
+          "length": "256"
+        }
+      }
     },
     {
       "identifier": "DeviceTime",
@@ -54,7 +90,12 @@
       "functionType": "u",
       "accessMode": "rw",
       "desc": "DS1302实际时间，固定格式YYYY-MM-DD HH:mm:ss；下发时自动计算星期",
-      "dataType": {"type": "string", "specs": {"length": "19"}}
+      "dataType": {
+        "type": "string",
+        "specs": {
+          "length": "19"
+        }
+      }
     },
     {
       "identifier": "TemperatureLow",
@@ -62,7 +103,15 @@
       "functionType": "u",
       "accessMode": "rw",
       "desc": "整数摄氏度；必须与TemperatureHigh一起设置，且下限小于上限；51写入EEPROM",
-      "dataType": {"type": "int32", "specs": {"min": "0", "max": "99", "unit": "℃", "step": "1"}}
+      "dataType": {
+        "type": "int32",
+        "specs": {
+          "min": "0",
+          "max": "99",
+          "unit": "℃",
+          "step": "1"
+        }
+      }
     },
     {
       "identifier": "TemperatureHigh",
@@ -70,7 +119,15 @@
       "functionType": "u",
       "accessMode": "rw",
       "desc": "整数摄氏度；必须与TemperatureLow一起设置，且上限大于下限；51写入EEPROM",
-      "dataType": {"type": "int32", "specs": {"min": "0", "max": "99", "unit": "℃", "step": "1"}}
+      "dataType": {
+        "type": "int32",
+        "specs": {
+          "min": "0",
+          "max": "99",
+          "unit": "℃",
+          "step": "1"
+        }
+      }
     },
     {
       "identifier": "HumidityLow",
@@ -78,7 +135,15 @@
       "functionType": "u",
       "accessMode": "rw",
       "desc": "整数相对湿度0~100；必须与HumidityHigh一起设置，且下限小于上限；51写入EEPROM",
-      "dataType": {"type": "int32", "specs": {"min": "0", "max": "100", "unit": "相对湿度 / %RH", "step": "1"}}
+      "dataType": {
+        "type": "int32",
+        "specs": {
+          "min": "0",
+          "max": "100",
+          "unit": "相对湿度 / %RH",
+          "step": "1"
+        }
+      }
     },
     {
       "identifier": "HumidityHigh",
@@ -86,7 +151,15 @@
       "functionType": "u",
       "accessMode": "rw",
       "desc": "整数相对湿度0~100；必须与HumidityLow一起设置，且上限大于下限；51写入EEPROM",
-      "dataType": {"type": "int32", "specs": {"min": "0", "max": "100", "unit": "相对湿度 / %RH", "step": "1"}}
+      "dataType": {
+        "type": "int32",
+        "specs": {
+          "min": "0",
+          "max": "100",
+          "unit": "相对湿度 / %RH",
+          "step": "1"
+        }
+      }
     },
     {
       "identifier": "AlarmActive",
@@ -94,7 +167,13 @@
       "functionType": "u",
       "accessMode": "r",
       "desc": "51判断有效温度或湿度任一项越限；等于上下限不报警；不是界面自行推算的报警",
-      "dataType": {"type": "bool", "specs": {"true": "温湿度越限", "false": "未报警"}}
+      "dataType": {
+        "type": "bool",
+        "specs": {
+          "true": "温湿度越限",
+          "false": "未报警"
+        }
+      }
     },
     {
       "identifier": "AlarmMuted",
@@ -102,7 +181,13 @@
       "functionType": "u",
       "accessMode": "rw",
       "desc": "true立即消音约10秒，仍越限自动再次报警；false立即恢复声音；全部有效读数恢复范围内则解除报警",
-      "dataType": {"type": "bool", "specs": {"true": "临时消音", "false": "未消音"}}
+      "dataType": {
+        "type": "bool",
+        "specs": {
+          "true": "临时消音",
+          "false": "未消音"
+        }
+      }
     },
     {
       "identifier": "TemperatureAlarm",
@@ -110,7 +195,13 @@
       "functionType": "u",
       "accessMode": "r",
       "desc": "51实际判断的温度越限状态；有效读数严格低于下限或高于上限时为true，等于边界不报警；消音不清除该状态",
-      "dataType": {"type": "bool", "specs": {"true": "温度越限", "false": "温度未越限"}}
+      "dataType": {
+        "type": "bool",
+        "specs": {
+          "true": "温度越限",
+          "false": "温度未越限"
+        }
+      }
     },
     {
       "identifier": "HumidityAlarm",
@@ -118,7 +209,13 @@
       "functionType": "u",
       "accessMode": "r",
       "desc": "51实际判断的湿度越限状态；有效读数严格低于下限或高于上限时为true，等于边界不报警；消音不清除该状态",
-      "dataType": {"type": "bool", "specs": {"true": "湿度越限", "false": "湿度未越限"}}
+      "dataType": {
+        "type": "bool",
+        "specs": {
+          "true": "湿度越限",
+          "false": "湿度未越限"
+        }
+      }
     },
     {
       "identifier": "McuOnline",
@@ -126,7 +223,13 @@
       "functionType": "u",
       "accessMode": "r",
       "desc": "ESP在最近5秒内收到51完整有效DATA帧；与ESP自身WiFi在线状态区分",
-      "dataType": {"type": "bool", "specs": {"true": "51在线", "false": "51离线或超时"}}
+      "dataType": {
+        "type": "bool",
+        "specs": {
+          "true": "51在线",
+          "false": "51离线或超时"
+        }
+      }
     },
     {
       "identifier": "ControlReady",
@@ -134,7 +237,13 @@
       "functionType": "u",
       "accessMode": "r",
       "desc": "51数据新鲜且支持安全接收窗口，ESP控制发送口可用；具体命令仍须51执行确认",
-      "dataType": {"type": "bool", "specs": {"true": "可发起控制", "false": "暂不可控制"}}
+      "dataType": {
+        "type": "bool",
+        "specs": {
+          "true": "可发起控制",
+          "false": "暂不可控制"
+        }
+      }
     },
     {
       "identifier": "TemperatureValid",
@@ -142,7 +251,13 @@
       "functionType": "u",
       "accessMode": "r",
       "desc": "51温度读取有效、通信未超时且数值在当前温度物模型范围内；无效时不上传占位温度",
-      "dataType": {"type": "bool", "specs": {"true": "温度有效", "false": "温度无效"}}
+      "dataType": {
+        "type": "bool",
+        "specs": {
+          "true": "温度有效",
+          "false": "温度无效"
+        }
+      }
     },
     {
       "identifier": "HumidityValid",
@@ -150,7 +265,137 @@
       "functionType": "u",
       "accessMode": "r",
       "desc": "51湿度读取有效且通信未超时；无效时不上传255占位湿度",
-      "dataType": {"type": "bool", "specs": {"true": "湿度有效", "false": "湿度无效"}}
+      "dataType": {
+        "type": "bool",
+        "specs": {
+          "true": "湿度有效",
+          "false": "湿度无效"
+        }
+      }
+    },
+    {
+      "identifier": "AlcoholRaw",
+      "name": "酒精检测原始值",
+      "functionType": "u",
+      "accessMode": "r",
+      "desc": "51板载12位ADC对MQ-3 AO的原始采样，范围0~4095；须同时检查AlcoholValid，不是ppm或浓度百分比",
+      "dataType": {
+        "type": "int32",
+        "specs": {
+          "min": "0",
+          "max": "4095",
+          "unit": "",
+          "step": "1"
+        }
+      }
+    },
+    {
+      "identifier": "AlcoholVoltage",
+      "name": "酒精采样估算电压",
+      "functionType": "u",
+      "accessMode": "r",
+      "desc": "由AlcoholRaw按标称5V参考换算，与51显示相同的整数近似，保留两位小数；不是电源实测值，未做传感器浓度标定；须同时检查AlcoholValid",
+      "dataType": {
+        "type": "float",
+        "specs": {
+          "min": "0",
+          "max": "5",
+          "unit": "V",
+          "step": "0.01"
+        }
+      }
+    },
+    {
+      "identifier": "AlcoholIndex",
+      "name": "酒精相对响应指数",
+      "functionType": "u",
+      "accessMode": "r",
+      "desc": "AlcoholRaw/4095*100取整的相对响应指数0~100；不是浓度百分比、ppm或安全等级，不代表法定检测结论；须同时检查AlcoholValid",
+      "dataType": {
+        "type": "int32",
+        "specs": {
+          "min": "0",
+          "max": "100",
+          "unit": "",
+          "step": "1"
+        }
+      }
+    },
+    {
+      "identifier": "AlcoholValid",
+      "name": "酒精采样回报有效",
+      "functionType": "u",
+      "accessMode": "r",
+      "desc": "最近5秒收到有效51 DATA和MQ帧；仅表示通信及数值范围有效，不表示MQ预热或浓度标定已完成；无效时不重传旧测量值",
+      "dataType": {
+        "type": "bool",
+        "specs": {
+          "true": "采样回报有效",
+          "false": "等待采样或通信超时"
+        }
+      }
+    },
+    {
+      "identifier": "MotorLevel",
+      "name": "电机实际档位",
+      "functionType": "u",
+      "accessMode": "r",
+      "desc": "51实际回报档位0停止、1低、2中、3高；该属性只读。云端调速请设置MotorTarget，确认状态不能取代转速测量。",
+      "dataType": {
+        "type": "int32",
+        "specs": {
+          "min": "0",
+          "max": "3",
+          "unit": "",
+          "step": "1"
+        }
+      }
+    },
+    {
+      "identifier": "MotorPWM",
+      "name": "电机PWM设定占空比",
+      "functionType": "u",
+      "accessMode": "r",
+      "desc": "根据51实际档位映射0/40/55/70%，最高档70%；是程序设定占空比而非实测转速或转动确认；须同时检查MotorValid",
+      "dataType": {
+        "type": "int32",
+        "specs": {
+          "min": "0",
+          "max": "70",
+          "unit": "%",
+          "step": "1"
+        }
+      }
+    },
+    {
+      "identifier": "MotorValid",
+      "name": "电机状态回报有效",
+      "functionType": "u",
+      "accessMode": "r",
+      "desc": "最近5秒收到有效51 DATA和FAN档位帧；没有转速或电流传感器，不能据此判断物理电机已转动；无效时不重传旧档位/PWM",
+      "dataType": {
+        "type": "bool",
+        "specs": {
+          "true": "档位回报有效",
+          "false": "等待状态或通信超时"
+        }
+      }
+    },
+    {
+      "identifier": "MotorTarget",
+      "name": "电机目标档位",
+      "functionType": "u",
+      "accessMode": "rw",
+      "desc": "下发0停止、1低档40%、2中档55%、3高档70%；ESP仅发送一次，51的ACK及之后的新FAN/DATA一致才回复成功。周期上报同步实际档位，但界面必须以只读MotorLevel为准。非实测转速。",
+      "dataType": {
+        "type": "int32",
+        "specs": {
+          "min": "0",
+          "max": "3",
+          "unit": "",
+          "step": "1"
+        }
+      }
     }
   ],
   "events": [],

@@ -16,6 +16,8 @@ FIELDS = (
     "TemperatureHigh", "HumidityLow", "HumidityHigh", "AlarmActive", "AlarmMuted", "McuOnline",
     "ControlReady", "TemperatureValid", "HumidityValid",
     "TemperatureAlarm", "HumidityAlarm",
+    "AlcoholRaw", "AlcoholVoltage", "AlcoholIndex", "AlcoholValid",
+    "MotorLevel", "MotorPWM", "MotorValid", "MotorTarget",
 )
 FRESH_MS = 20_000
 FUTURE_TOLERANCE_MS = 5_000
@@ -122,6 +124,10 @@ def snapshot(properties, now_ms=None) -> dict:
 
     def number(identifier, minimum, maximum):
         item = fresh(identifier)
+        if item and identifier in ("AlcoholRaw", "MotorLevel", "MotorPWM"):
+            value = item.get("value")
+            if isinstance(value, str) and not re.fullmatch(r"0|[1-9][0-9]*", value):
+                return None
         parser = _decimal if identifier == "CurrentTemperature" else _integer
         return parser(item.get("value"), minimum, maximum) if item else None
 
@@ -153,6 +159,19 @@ def snapshot(properties, now_ms=None) -> dict:
         online and flag("ControlReady") is True and device_time is not None
         and limits_valid and alarm is not None and muted is not None
     )
+
+    def coherent(*identifiers):
+        return all(fresh(key) for key in identifiers) and max(
+            _stamp(entries[key].get("time")) for key in identifiers
+        ) - min(_stamp(entries[key].get("time")) for key in identifiers) <= 1000
+
+    alcohol_raw = number("AlcoholRaw", 0, 4095)
+    alcohol_valid = (online and flag("AlcoholValid") is True and alcohol_raw is not None
+                     and coherent("AlcoholValid", "AlcoholRaw"))
+    motor_level, motor_pwm = number("MotorLevel", 0, 3), number("MotorPWM", 0, 70)
+    motor_valid = (online and flag("MotorValid") is True and motor_level is not None
+                   and motor_pwm == (0, 40, 55, 70)[motor_level]
+                   and coherent("MotorValid", "MotorLevel", "MotorPWM"))
     return {
         "online": online,
         "ready": bool(ready),
@@ -171,6 +190,16 @@ def snapshot(properties, now_ms=None) -> dict:
         "muted": muted,
         "temperature_alarm": temperature_alarm,
         "humidity_alarm": humidity_alarm,
+        "alcohol_valid": bool(alcohol_valid),
+        "alcohol_raw": alcohol_raw if alcohol_valid else None,
+        "alcohol_voltage": (((alcohol_raw >> 3) * 125) >> 7) / 100 if alcohol_valid else None,
+        "alcohol_index": (alcohol_raw * 100 + 2047) // 4095 if alcohol_valid else None,
+        "alcohol_at": _stamp(entries.get("AlcoholRaw", {}).get("time")),
+        "motor_valid": bool(motor_valid),
+        "motor_level": motor_level if motor_valid else None,
+        "motor_pwm": motor_pwm if motor_valid else None,
+        "motor_at": _stamp(entries.get("MotorLevel", {}).get("time")),
+        "motor_control_ready": bool(ready and motor_valid and "MotorTarget" in entries),
         "time_at": _stamp(time_prop.get("time")),
         "updated_at": max([0] + [_stamp(item.get("time")) for item in entries.values()]),
     }
@@ -194,8 +223,11 @@ def validate_params(params) -> dict:
     elif keys == {"AlarmMuted"}:
         if type(params["AlarmMuted"]) is not bool:
             raise OneNetError("静音参数须为布尔值")
+    elif keys == {"MotorTarget"}:
+        if type(params["MotorTarget"]) is not int or not 0 <= params["MotorTarget"] <= 3:
+            raise OneNetError("电机只接受0～3档整数，最高档为70%PWM")
     else:
-        raise OneNetError("一次只能修改日期时间、温度范围、湿度范围或临时消音")
+        raise OneNetError("一次只能修改日期时间、温度范围、湿度范围、临时消音或电机档位")
     return dict(params)
 
 
@@ -211,6 +243,12 @@ def _state_matches(properties, params, sent_at, now_ms, baseline) -> bool:
     if not state["ready"] or ("HumidityLow" in params and not state["humidity_ready"]):
         return False
     current, previous = _property_map(properties), _property_map(baseline)
+    if "MotorTarget" in params:
+        item, old = current.get("MotorLevel"), previous.get("MotorLevel")
+        at = _stamp(item.get("time")) if item else 0
+        return bool(state["motor_control_ready"] and item and old
+                    and state["motor_level"] == params["MotorTarget"]
+                    and at >= sent_at - 1000 and at > _stamp(old.get("time")))
     for identifier, expected in params.items():
         item, old = current.get(identifier), previous.get(identifier)
         if not item or not old:
@@ -347,6 +385,8 @@ class OneNetClient:
                 raise OneNetError("当前没有有效温湿度报警，无需修改临时消音")
             if "HumidityLow" in params and not before["humidity_ready"]:
                 raise OneNetError("尚无新鲜湿度阈值，请发布物模型并更新51与ESP固件")
+            if "MotorTarget" in params and not before["motor_control_ready"]:
+                raise OneNetError("电机回报未就绪，请检查MotorTarget物模型与51/ESP新固件")
             sent_at = self._now()
             self._last_command_at = sent_at
             # POST 只发一次。超时并不证明设备没有执行，不能自动重发。

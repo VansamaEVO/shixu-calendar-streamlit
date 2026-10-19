@@ -93,6 +93,8 @@ def _icon(name: str) -> str:
         "temperature": '<path d="M14 14.8V5a3 3 0 0 0-6 0v9.8a5 5 0 1 0 6 0Z"/><path d="M11 7v10"/>',
         "humidity": '<path d="M12 3S6.5 9.1 6.5 14a5.5 5.5 0 0 0 11 0C17.5 9.1 12 3 12 3Z"/><path d="M9 15.5c.7 1.1 1.7 1.6 3 1.6"/>',
         "bell": '<path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 7H3s3 0 3-7ZM10 20h4"/>',
+        "alcohol": '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3M8 14h8"/>',
+        "motor": '<circle cx="12" cy="12" r="2"/><path d="M12 10C6 2 17 1 17 6c0 2-2 4-4 5M14 12c9-1 6 10 1 7-2-1-3-3-3-5M10 13c-4 8-11 0-6-3 2-1 4 0 6 1"/>',
     }
     return ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
             'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" '
@@ -253,6 +255,49 @@ def _month_html(view_date: date, label: str) -> str:
     """
 
 
+def expansion_html(snapshot: dict, online: bool, now_ms: int) -> str:
+    """Read-only additions; never infer a stopped motor or a calibrated ppm value."""
+    raw = _number(snapshot.get("alcohol_raw"))
+    alcohol = (online and _truth(snapshot.get("alcohol_valid")) and raw is not None
+               and raw.is_integer() and 0 <= raw <= 4095 and _fresh(snapshot.get("alcohol_at"), now_ms))
+    level, pwm = _number(snapshot.get("motor_level")), _number(snapshot.get("motor_pwm"))
+    motor = (online and _truth(snapshot.get("motor_valid")) and level is not None
+             and level.is_integer() and 0 <= level <= 3 and pwm == (0, 40, 55, 70)[int(level)]
+             and _fresh(snapshot.get("motor_at"), now_ms))
+    voltage = f'{(((int(raw) >> 3) * 125) >> 7) / 100:.2f}' if alcohol else "--"
+    index = str((int(raw) * 100 + 2047) // 4095) if alcohol else "--"
+    filled = (int(raw) + 256) >> 9 if alcohol else 0
+    bars = ''.join(f'<i class="{"is-on" if i < filled else ""}"></i>' for i in range(8))
+    raw_note = f'原始值 {int(raw)} / 4095' if alcohol else '等待51有效采样'
+    alcohol_status = "实时上报" if alcohol else "等待上报" if online else "等待设备"
+    motor_status = "实时上报" if motor else "等待上报" if online else "等待设备"
+    motor_text = ("停止", "低档", "中档", "高档")[int(level)] if motor else "--"
+    motor_pwm = f'{int(pwm)}%' if motor else "--%"
+    stages = ''.join(f'<span class="{"is-selected" if motor and int(level) == i else ""}">{name}</span>'
+                     for i, name in enumerate(("停", "低", "中", "高")))
+    return f"""
+      <section class="calendar-expansion" aria-label="酒精检测与电机只读状态">
+        <div class="calendar-expansion-heading"><h2>拓展监测</h2><span>51真实回报 · 档位回读</span></div>
+        <div class="calendar-expansion-grid">
+          <article class="calendar-card calendar-module calendar-alcohol">
+            <div class="calendar-module-head"><span class="calendar-module-title">{_icon('alcohol')}酒精检测</span><span class="calendar-module-state">{alcohol_status}</span></div>
+            <div class="calendar-module-value">{voltage}<small> V</small><span>响应指数 <b>{index}</b> / 100</span></div>
+            <div class="calendar-alcohol-bars" role="img" aria-label="相对响应{index}/100，非浓度与安全等级">{bars}</div>
+            <p class="calendar-module-meta">{raw_note}<span>MQ-3 · 需预热</span></p>
+            <p class="calendar-module-note">按5V参考估算采样电压，未标定酒精浓度。</p>
+          </article>
+          <article class="calendar-card calendar-module calendar-motor">
+            <div class="calendar-module-head"><span class="calendar-module-title">{_icon('motor')}电机状态</span><span class="calendar-module-state">{motor_status}</span></div>
+            <div class="calendar-module-value">{motor_text}<span>PWM设定 <b>{motor_pwm}</b></span></div>
+            <div class="calendar-motor-stages" aria-label="设备回报{motor_text}">{stages}</div>
+            <p class="calendar-module-meta">档位由51回报<span>非实测转速</span></p>
+            <p class="calendar-module-note">调速见下方日历设置；也可使用板上按键或本地蓝牙。</p>
+          </article>
+        </div>
+      </section>
+    """
+
+
 def dashboard_html(snapshot: dict, gateway_status: int, now_ms: int) -> str:
     """Return read-only overview HTML. ``updated_at`` / ``time_at`` use epoch ms.
 
@@ -349,6 +394,7 @@ def dashboard_html(snapshot: dict, gateway_status: int, now_ms: int) -> str:
           <p class="calendar-metric-note">{alarm_note}</p></div>
         </article>
       </section>
+      {expansion_html(snapshot, online, now_ms)}
     </div>
     """
 

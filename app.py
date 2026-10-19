@@ -170,6 +170,20 @@ def render_controls(client, state):
                 send_command(client, {"AlarmMuted": False}, "本次报警声音已恢复")
                 st.rerun()
 
+    st.markdown("##### 电机调速")
+    motor_ready = state.get("motor_control_ready", False) and ready
+    motor_labels = ("停止电机", "低档 · 40%", "中档 · 55%", "高档 · 70%")
+    for start in (0, 2):
+        for offset, column in enumerate(st.columns(2, gap="small")):
+            level = start + offset
+            with column:
+                if st.button(motor_labels[level], key=f"cloud_motor_{level}", disabled=not motor_ready, use_container_width=True):
+                    send_command(client, {"MotorTarget": level}, "电机档位已核对为" + motor_labels[level])
+                    st.rerun()
+    st.caption("仅下发一次，收到51确认和新档位回报后才算成功。请勿与按键/蓝牙同时调速；网络停止不能替代板上停止。")
+    if not motor_ready:
+        st.caption("等待电机有效回报及MotorTarget物模型，请先更新51与ESP程序。")
+
     st.html(settings_summary_html(state))
     if not ready:
         st.caption("连接设备后可操作；离线、数据过期或双向通信未就绪时暂停修改。")
@@ -238,12 +252,13 @@ def main():
         state = snapshot(properties, now_ms)
         if gateway != 1 or error:
             state.update(online=False, ready=False, humidity_ready=False, temperature=None, humidity=None, time=None, alarm=None, muted=None,
-                         temperature_alarm=None, humidity_alarm=None)
+                         temperature_alarm=None, humidity_alarm=None, motor_control_ready=False)
         st.session_state["current_snapshot"] = state
         st.session_state["current_gateway"] = gateway
         signature = (gateway, state["ready"], state["alarm"], state["muted"], state["low"], state["high"],
                      state["humidity_ready"], state["humidity_low"], state["humidity_high"],
-                     state["temperature_alarm"], state["humidity_alarm"])
+                     state["temperature_alarm"], state["humidity_alarm"], state["motor_control_ready"],
+                     state["motor_level"], state["motor_pwm"])
         previous = st.session_state.get("controls_signature")
         if previous is not None and previous != signature:
             # 仅在控制状态/已生效阈值变化时重绘，草稿不会被常规轮询覆盖。

@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT))
 import streamlit as st
 from streamlit.testing.v1 import AppTest
 
-from onenet import OneNetClient, validate_params
+from onenet import OneNetClient, OneNetError, validate_params
 
 
 TEST_SECRETS = {
@@ -113,6 +113,56 @@ class AppTests(unittest.TestCase):
         self.read_mock.assert_called()
         self.history_mock.assert_called()
         self.control_mock.assert_not_called()
+
+    def test_expansion_actual_app_reads_without_adding_motor_controls(self):
+        now = int(time.time() * 1000)
+        additions = dict(AlcoholRaw=1933, AlcoholValid=True, MotorLevel=2, MotorPWM=55, MotorValid=True)
+        self.live_payload['properties'] += [dict(identifier=k, value=v, time=now) for k, v in additions.items()]
+        app = self.app()
+        html = html_text(app)
+        self.assertIn('酒精检测', html)
+        self.assertIn('2.35', html)
+        self.assertIn('>中档<', html)
+        self.assertIn('55%', html)
+        self.assertNotIn('MotorLevel', [item.key for item in app.button])
+        self.control_mock.assert_not_called()
+
+    def test_expansion_api_error_does_not_keep_live_motor_or_alcohol(self):
+        self.read_mock.side_effect = OneNetError('离线测试异常')
+        app = self.app()
+        html = html_text(app)
+        self.assertIn('酒精检测', html)
+        self.assertNotIn('>停止<', html)
+        self.assertNotIn('>0.00<', html)
+        self.assertIn('等待设备', html)
+        self.control_mock.assert_not_called()
+
+    def test_cloud_motor_buttons_disabled_until_model_and_state_are_ready(self):
+        app = self.app()
+        for level in range(4):
+            self.assertTrue(app.button(key=f'cloud_motor_{level}').disabled)
+        self.control_mock.assert_not_called()
+
+    def test_cloud_motor_click_uses_target_but_displays_actual_return(self):
+        now = int(time.time() * 1000)
+        self.live_payload['properties'] += [dict(identifier=k, value=v, time=now) for k, v in
+            dict(MotorTarget=0, MotorLevel=0, MotorPWM=0, MotorValid=True).items()]
+        def motor_confirm(params):
+            validate_params(params)
+            self.assertEqual(params, {'MotorTarget': 2})
+            for item in self.live_payload['properties']:
+                item['time'] = int(time.time() * 1000)
+                if item['identifier'] in ('MotorTarget', 'MotorLevel'): item['value'] = 2
+                if item['identifier'] == 'MotorPWM': item['value'] = 55
+            return dict(confirmed=True, properties=deepcopy(self.live_payload['properties']))
+        self.control_mock.side_effect = motor_confirm
+        app = self.app()
+        self.assertFalse(app.button(key='cloud_motor_2').disabled)
+        app.button(key='cloud_motor_2').click().run()
+        self.assertEqual(len(app.exception), 0)
+        self.control_mock.assert_called_once_with({'MotorTarget': 2})
+        self.assertIn('>中档<', html_text(app))
+        self.assertTrue(any('已核对' in item.value for item in app.success))
 
     def test_history_precedes_visible_segmented_settings(self):
         app = self.app()
