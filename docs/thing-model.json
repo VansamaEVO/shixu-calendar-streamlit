@@ -386,7 +386,7 @@
       "name": "电机目标档位",
       "functionType": "u",
       "accessMode": "rw",
-      "desc": "下发0停止、1低档40%、2中档55%、3高档70%；ESP仅发送一次，51的ACK及之后的新FAN/DATA一致才回复成功。周期上报同步实际档位，但界面必须以只读MotorLevel为准。非实测转速。",
+      "desc": "0停、1低40%、2中55%、3高70%；ESP只发一次，ACK及新FAN/DATA匹配后确认；以MotorLevel回报为准，PWM非实测转速。",
       "dataType": {
         "type": "int32",
         "specs": {

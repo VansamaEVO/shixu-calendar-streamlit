@@ -164,6 +164,30 @@ class AppTests(unittest.TestCase):
         self.assertIn('>中档<', html_text(app))
         self.assertTrue(any('已核对' in item.value for item in app.success))
 
+    def test_session_alcohol_curve_deduplicates_actual_live_properties(self):
+        now = int(time.time() * 1000)
+        self.live_payload['properties'] += [dict(identifier=k, value=v, time=now) for k, v in
+            dict(AlcoholRaw=1933, AlcoholValid=True).items()]
+        app = self.app()
+        self.assertEqual(app.session_state['alcohol_samples'], [dict(time=now, raw=1933)])
+        self.assertIn('1 个有效点', html_text(app))
+        app.run()
+        self.assertEqual(len(app.session_state['alcohol_samples']), 1)
+        self.control_mock.assert_not_called()
+
+    def test_motor_failure_keeps_actual_level_and_does_not_resend(self):
+        now = int(time.time() * 1000)
+        self.live_payload['properties'] += [dict(identifier=k, value=v, time=now) for k, v in
+            dict(MotorTarget=2, MotorLevel=2, MotorPWM=55, MotorValid=True).items()]
+        self.control_mock.side_effect = OneNetError('离线测试：执行结果未确认')
+        app = self.app()
+        app.button(key='cloud_motor_0').click().run()
+        self.assertEqual(len(app.exception), 0)
+        self.control_mock.assert_called_once_with({'MotorTarget': 0})
+        self.assertIn('>中档</strong>', html_text(app))
+        self.assertNotIn('>停止</strong>', html_text(app))
+        self.assertTrue(any('未确认' in warning.value for warning in app.warning))
+
     def test_history_precedes_visible_segmented_settings(self):
         app = self.app()
         self.assertEqual([item.label for item in app.expander], ["连接信息与操作记录"])

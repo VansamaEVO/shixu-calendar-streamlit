@@ -12,7 +12,7 @@ import streamlit as st
 from onenet import OneNetClient, OneNetError, snapshot
 from settings import SettingsError, load_settings
 from trend import history_chart
-from ui import dashboard_html, empty_trend_html, footer_html, header_html, navigation_html, settings_heading_html, settings_summary_html, trend_heading_html
+from ui import dashboard_html, empty_trend_html, footer_html, header_html, navigation_html, settings_heading_html, settings_summary_html, trend_heading_html, record_alcohol_sample, motor_controls_heading_html
 
 BASE = Path(__file__).resolve().parent
 CHINA = timezone(timedelta(hours=8))
@@ -170,19 +170,29 @@ def render_controls(client, state):
                 send_command(client, {"AlarmMuted": False}, "本次报警声音已恢复")
                 st.rerun()
 
-    st.markdown("##### 电机调速")
     motor_ready = state.get("motor_control_ready", False) and ready
     motor_labels = ("停止电机", "低档 · 40%", "中档 · 55%", "高档 · 70%")
-    for start in (0, 2):
-        for offset, column in enumerate(st.columns(2, gap="small")):
-            level = start + offset
+    with st.container(key="calendar-motor-controls"):
+        now_ms = int(time.time() * 1000)
+        st.html('<div id="calendar-motor-settings"></div>' + motor_controls_heading_html(state, motor_ready, now_ms))
+        # Selection reflects an actual fresh report, never the clicked target.
+        actual_level = state.get("motor_level") if (state.get("online") and state.get("motor_valid")
+            and -5_000 <= now_ms - state.get("motor_at", 0) < 20_000) else None
+        for level, column in enumerate(st.columns(4, gap="small")):
             with column:
-                if st.button(motor_labels[level], key=f"cloud_motor_{level}", disabled=not motor_ready, use_container_width=True):
+                if st.button(motor_labels[level], key=f"cloud_motor_{level}", disabled=not motor_ready,
+                             type="primary" if actual_level == level else "secondary", use_container_width=True):
                     send_command(client, {"MotorTarget": level}, "电机档位已核对为" + motor_labels[level])
                     st.rerun()
-    st.caption("仅下发一次，收到51确认和新档位回报后才算成功。请勿与按键/蓝牙同时调速；网络停止不能替代板上停止。")
-    if not motor_ready:
-        st.caption("等待电机有效回报及MotorTarget物模型，请先更新51与ESP程序。")
+        if motor_ready:
+            st.caption("选择一个档位，仅下发一次；收到51确认与新档位回报后才算成功。")
+        elif not state.get("online"):
+            st.caption("设备离线或数据过期，暂停云端调速；离线不代表电机已经停止。")
+        elif not ready:
+            st.caption("双向控制尚未就绪，等待设备最新回报后再操作。")
+        else:
+            st.caption("等待电机有效回报或MotorTarget物模型，暂不能下发。")
+        st.html('<p class="calendar-motor-caution">请勿与按键或蓝牙同时调速。断网不会自动停机，云端停止不能替代板上停止。</p>')
 
     st.html(settings_summary_html(state))
     if not ready:
@@ -255,6 +265,11 @@ def main():
                          temperature_alarm=None, humidity_alarm=None, motor_control_ready=False)
         st.session_state["current_snapshot"] = state
         st.session_state["current_gateway"] = gateway
+        if st.session_state.get("alcohol_history_identity") != identity:
+            st.session_state["alcohol_history_identity"] = identity
+            st.session_state["alcohol_samples"] = []
+        st.session_state["alcohol_samples"] = record_alcohol_sample(
+            st.session_state.get("alcohol_samples", []), state, gateway == 1 and state["online"], now_ms)
         signature = (gateway, state["ready"], state["alarm"], state["muted"], state["low"], state["high"],
                      state["humidity_ready"], state["humidity_low"], state["humidity_high"],
                      state["temperature_alarm"], state["humidity_alarm"], state["motor_control_ready"],
@@ -267,7 +282,7 @@ def main():
         st.session_state["controls_signature"] = signature
         if error:
             st.warning(error)
-        st.html(dashboard_html(state, gateway, now_ms))
+        st.html(dashboard_html(state, gateway, now_ms, st.session_state["alcohol_samples"]))
         notice = st.session_state.get("command_notice")
         if notice:
             (st.success if notice[0] else st.warning)(notice[1])
