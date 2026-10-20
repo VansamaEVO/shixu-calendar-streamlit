@@ -171,7 +171,7 @@ def render_controls(client, state):
                 st.rerun()
 
     motor_ready = state.get("motor_control_ready", False) and ready
-    motor_labels = ("停止电机", "低档 · 40%", "中档 · 55%", "高档 · 70%")
+    motor_labels = ("停止电机", "低档 · 40%", "中档 · 50%", "高档 · 60%")
     with st.container(key="calendar-motor-controls"):
         now_ms = int(time.time() * 1000)
         st.html('<div id="calendar-motor-settings"></div>' + motor_controls_heading_html(state, motor_ready, now_ms))

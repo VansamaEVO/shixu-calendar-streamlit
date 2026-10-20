@@ -168,9 +168,9 @@ def snapshot(properties, now_ms=None) -> dict:
     alcohol_raw = number("AlcoholRaw", 0, 4095)
     alcohol_valid = (online and flag("AlcoholValid") is True and alcohol_raw is not None
                      and coherent("AlcoholValid", "AlcoholRaw"))
-    motor_level, motor_pwm = number("MotorLevel", 0, 3), number("MotorPWM", 0, 70)
+    motor_level, motor_pwm = number("MotorLevel", 0, 3), number("MotorPWM", 0, 60)
     motor_valid = (online and flag("MotorValid") is True and motor_level is not None
-                   and motor_pwm == (0, 40, 55, 70)[motor_level]
+                   and motor_pwm == (0, 40, 50, 60)[motor_level]
                    and coherent("MotorValid", "MotorLevel", "MotorPWM"))
     return {
         "online": online,
@@ -225,7 +225,7 @@ def validate_params(params) -> dict:
             raise OneNetError("静音参数须为布尔值")
     elif keys == {"MotorTarget"}:
         if type(params["MotorTarget"]) is not int or not 0 <= params["MotorTarget"] <= 3:
-            raise OneNetError("电机只接受0～3档整数，最高档为70%PWM")
+            raise OneNetError("电机只接受0～3档整数，最高档为60%PWM")
     else:
         raise OneNetError("一次只能修改日期时间、温度范围、湿度范围、临时消音或电机档位")
     return dict(params)

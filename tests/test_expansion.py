@@ -11,7 +11,7 @@ NOW = 1_791_610_000_000
 
 def props(**overrides):
     values = dict(McuOnline=True, AlcoholValid=True, AlcoholRaw=1933,
-                  MotorValid=True, MotorLevel=2, MotorPWM=55)
+                  MotorValid=True, MotorLevel=2, MotorPWM=50)
     values.update(overrides)
     return [dict(identifier=k, value=v, time=NOW - 1000) for k, v in values.items()]
 
@@ -26,7 +26,7 @@ class ExpansionTests(unittest.TestCase):
             self.assertEqual(value['alcohol_raw'], raw)
 
     def test_motor_actual_gears_and_zero_are_not_missing(self):
-        for level, pwm in enumerate((0, 40, 55, 70)):
+        for level, pwm in enumerate((0, 40, 50, 60)):
             value = snapshot(props(MotorLevel=level, MotorPWM=pwm, AlcoholRaw=0), NOW)
             self.assertTrue(value['motor_valid'])
             self.assertEqual(value['motor_level'], level)

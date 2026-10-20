@@ -30,13 +30,13 @@ class MotorCloudTests(unittest.TestCase):
     def test_actual_new_state_not_target_echo_is_required(self):
         baseline=motor_properties()
         self.assertFalse(_state_matches(motor_properties(MotorTarget=2),{'MotorTarget':2},NOW,NOW,baseline))
-        self.assertFalse(_state_matches(motor_properties(MotorLevel=2,MotorPWM=55),{'MotorTarget':2},NOW,NOW,baseline))
-        returned=motor_properties(at=NOW+1000,MotorLevel=2,MotorPWM=55,MotorTarget=0)
+        self.assertFalse(_state_matches(motor_properties(MotorLevel=2,MotorPWM=50),{'MotorTarget':2},NOW,NOW,baseline))
+        returned=motor_properties(at=NOW+1000,MotorLevel=2,MotorPWM=50,MotorTarget=0)
         self.assertTrue(_state_matches(returned,{'MotorTarget':2},NOW,NOW+1000,baseline))
         self.assertFalse(_state_matches(motor_properties(at=NOW+1000,MotorLevel=2,MotorPWM=40),{'MotorTarget':2},NOW,NOW+1000,baseline))
 
     def test_control_posts_once_and_waits_for_actual_motor(self):
-        for level,pwm in enumerate((0,40,55,70)):
+        for level,pwm in enumerate((0,40,50,60)):
             baseline=motor_properties()
             returned=motor_properties(at=NOW+1000,MotorLevel=level,MotorPWM=pwm)
             c,s,clock=client([ok(baseline),ok({'status':1}),ok({'code':200}),ok(returned)])

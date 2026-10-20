@@ -356,7 +356,7 @@
       "name": "电机PWM设定占空比",
       "functionType": "u",
       "accessMode": "r",
-      "desc": "根据51实际档位映射0/40/55/70%，最高档70%；是程序设定占空比而非实测转速或转动确认；须同时检查MotorValid",
+      "desc": "当前51档位映射0/40/50/60%，最高档60%；是程序设定占空比而非实测转速或转动确认；须同时检查MotorValid；数值范围保留旧版兼容上限70",
       "dataType": {
         "type": "int32",
         "specs": {
@@ -386,7 +386,7 @@
       "name": "电机目标档位",
       "functionType": "u",
       "accessMode": "rw",
-      "desc": "0停、1低40%、2中55%、3高70%；ESP只发一次，ACK及新FAN/DATA匹配后确认；以MotorLevel回报为准，PWM非实测转速。",
+      "desc": "0停、1低40%、2中50%、3高60%；ESP只发一次，ACK及新FAN/DATA匹配后确认；以MotorLevel回报为准，PWM非实测转速。",
       "dataType": {
         "type": "int32",
         "specs": {

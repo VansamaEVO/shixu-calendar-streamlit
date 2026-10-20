@@ -11,7 +11,7 @@ NOW = 1_791_610_000_000
 
 def state(raw=1933, at=NOW - 1000, **changes):
     return dict(online=True, alcohol_raw=raw, alcohol_valid=True, alcohol_at=at,
-                motor_level=2, motor_pwm=55, motor_valid=True, motor_at=at, **changes)
+                motor_level=2, motor_pwm=50, motor_valid=True, motor_at=at, **changes)
 
 
 def chart_source(html):
@@ -83,7 +83,7 @@ class WebRefinementTests(unittest.TestCase):
         self.assertNotIn('is-selected', html)
 
     def test_actual_motor_only_target_is_never_used_for_highlight(self):
-        for level, pwm in enumerate((0, 40, 55, 70)):
+        for level, pwm in enumerate((0, 40, 50, 60)):
             current = dict(state(), motor_level=level, motor_pwm=pwm, MotorTarget=3-level)
             html = expansion_html(current, True, NOW)
             self.assertEqual(html.count('class="is-selected"'), 1)

@@ -272,7 +272,7 @@ def _extension_values(snapshot: dict, online: bool, now_ms: int) -> tuple:
                and raw.is_integer() and 0 <= raw <= 4095 and _fresh(snapshot.get("alcohol_at"), now_ms))
     level, pwm = _number(snapshot.get("motor_level")), _number(snapshot.get("motor_pwm"))
     motor = (online and _truth(snapshot.get("motor_valid")) and level is not None
-             and level.is_integer() and 0 <= level <= 3 and pwm == (0, 40, 55, 70)[int(level)]
+             and level.is_integer() and 0 <= level <= 3 and pwm == (0, 40, 50, 60)[int(level)]
              and _fresh(snapshot.get("motor_at"), now_ms))
     return raw, alcohol, level, pwm, motor
 
@@ -377,8 +377,8 @@ def expansion_html(snapshot: dict, online: bool, now_ms: int, alcohol_history: l
     motor_text = ("停止", "低档", "中档", "高档")[int(level)] if motor else "--"
     motor_pwm = f'{int(pwm)}%' if motor else "--%"
     stages = ''.join(f'<span class="{"is-selected" if motor and int(level) == i else ""}"><b>{name}</b><small>{duty}%</small></span>'
-                     for i, (name, duty) in enumerate(zip(("停", "低", "中", "高"), (0, 40, 55, 70))))
-    track = f'<i style="width:{int(pwm) / 70 * 100:.3f}%"></i>' if motor else ''
+                     for i, (name, duty) in enumerate(zip(("停", "低", "中", "高"), (0, 40, 50, 60))))
+    track = f'<i style="width:{int(pwm) / 60 * 100:.3f}%"></i>' if motor else ''
     return f"""
       <section class="calendar-expansion" aria-label="酒精检测与电机只读状态">
         <div class="calendar-expansion-heading"><h2>拓展功能</h2><span>传感采样 / PWM调速</span></div>
@@ -396,8 +396,8 @@ def expansion_html(snapshot: dict, online: bool, now_ms: int, alcohol_history: l
             <div class="calendar-module-head"><div class="calendar-feature-title"><span class="calendar-feature-icon">{_feature_icon('motor')}</span><div><h3>电机状态</h3><p>直流电机 · 四档PWM</p></div></div><span class="calendar-module-state{' is-live' if motor else ''}">{motor_status}</span></div>
             <div class="calendar-motor-readout"><div><span>设备回报档位</span><strong>{motor_text}</strong></div><div><span>PWM设定占空比</span><strong>{motor_pwm}</strong></div></div>
             <div class="calendar-motor-stages" aria-label="档位指示，设备回报{motor_text}，仅显示不可点击">{stages}</div>
-            <div class="calendar-pwm-heading"><span>占空比范围</span><small>最高70% PWM</small></div>
-            <div class="calendar-pwm-track" role="img" aria-label="PWM设定{motor_pwm}，非实测转速">{track}</div><div class="calendar-pwm-scale"><span>0%</span><span>35%</span><span>70%</span></div>
+            <div class="calendar-pwm-heading"><span>占空比范围</span><small>最高60% PWM</small></div>
+            <div class="calendar-pwm-track" role="img" aria-label="PWM设定{motor_pwm}，非实测转速">{track}</div><div class="calendar-pwm-scale"><span>0%</span><span>30%</span><span>60%</span></div>
             <a class="calendar-motor-link" href="#calendar-motor-settings">调整电机档位<span aria-hidden="true">→</span></a>
             <p class="calendar-module-note">51真实档位回报 · PWM非实测转速。断网不自动停机，紧急停止请使用板上按键。</p>
           </article>

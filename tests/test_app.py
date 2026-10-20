@@ -116,14 +116,14 @@ class AppTests(unittest.TestCase):
 
     def test_expansion_actual_app_reads_without_adding_motor_controls(self):
         now = int(time.time() * 1000)
-        additions = dict(AlcoholRaw=1933, AlcoholValid=True, MotorLevel=2, MotorPWM=55, MotorValid=True)
+        additions = dict(AlcoholRaw=1933, AlcoholValid=True, MotorLevel=2, MotorPWM=50, MotorValid=True)
         self.live_payload['properties'] += [dict(identifier=k, value=v, time=now) for k, v in additions.items()]
         app = self.app()
         html = html_text(app)
         self.assertIn('酒精检测', html)
         self.assertIn('2.35', html)
         self.assertIn('>中档<', html)
-        self.assertIn('55%', html)
+        self.assertIn('50%', html)
         self.assertNotIn('MotorLevel', [item.key for item in app.button])
         self.control_mock.assert_not_called()
 
@@ -153,7 +153,7 @@ class AppTests(unittest.TestCase):
             for item in self.live_payload['properties']:
                 item['time'] = int(time.time() * 1000)
                 if item['identifier'] in ('MotorTarget', 'MotorLevel'): item['value'] = 2
-                if item['identifier'] == 'MotorPWM': item['value'] = 55
+                if item['identifier'] == 'MotorPWM': item['value'] = 50
             return dict(confirmed=True, properties=deepcopy(self.live_payload['properties']))
         self.control_mock.side_effect = motor_confirm
         app = self.app()
@@ -178,7 +178,7 @@ class AppTests(unittest.TestCase):
     def test_motor_failure_keeps_actual_level_and_does_not_resend(self):
         now = int(time.time() * 1000)
         self.live_payload['properties'] += [dict(identifier=k, value=v, time=now) for k, v in
-            dict(MotorTarget=2, MotorLevel=2, MotorPWM=55, MotorValid=True).items()]
+            dict(MotorTarget=2, MotorLevel=2, MotorPWM=50, MotorValid=True).items()]
         self.control_mock.side_effect = OneNetError('离线测试：执行结果未确认')
         app = self.app()
         app.button(key='cloud_motor_0').click().run()
